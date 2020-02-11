@@ -1,0 +1,78 @@
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: dsapi
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /v1/ds
+        backend:
+          serviceName: dsapi
+          servicePort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dsapi
+  labels:
+    app: dsapi
+    tier: api
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port:   '8080'
+    prometheus.io/path:   '/v1/ds/metrics'
+spec:
+  selector:
+    app: dsapi
+    tier: api
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dsapi
+  labels:
+    app: dsapi
+    tier: api
+spec:
+  selector:
+    matchLabels:
+      app: dsapi
+      tier: api
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: dsapi
+        tier: api
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: dsapi
+        image: hub.docker.com/yaleits/dsapi
+        volumeMounts:
+        - name: dsapi-config
+          mountPath: "/app/config"
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /v1/ds/ping
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 3
+      volumes:
+      - name: dsapi-config
+        secret:
+          secretName: ds-api-config-json
+        # envFrom:
+        #   - configMapRef:
+        #       name: dsapi-config
+        #   - secretRef:
+        #       name: dsapi-secrets
