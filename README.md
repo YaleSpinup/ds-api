@@ -1,5 +1,7 @@
 # ds-api
 
+[![CircleCI](https://circleci.com/gh/YaleSpinup/ds-api.svg?style=svg)](https://circleci.com/gh/YaleSpinup/ds-api)
+
 This API provides API access to the Spinup Data Set service.
 
 ## Endpoints
