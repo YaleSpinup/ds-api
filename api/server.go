@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/YaleSpinup/ds-api/common"
+	"github.com/YaleSpinup/ds-api/dataset"
+	s3metadatarepository "github.com/YaleSpinup/ds-api/s3repository"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 
@@ -20,9 +22,10 @@ func init() {
 }
 
 type server struct {
-	router  *mux.Router
-	version common.Version
-	context context.Context
+	datasetServices map[string]*dataset.Service
+	router          *mux.Router
+	version         common.Version
+	context         context.Context
 }
 
 // Org will carry throughout the api and get tagged on resources
@@ -35,19 +38,39 @@ func NewServer(config common.Config) error {
 	defer cancel()
 
 	s := server{
-		router:  mux.NewRouter(),
-		version: config.Version,
-		context: ctx,
+		datasetServices: make(map[string]*dataset.Service),
+		router:          mux.NewRouter(),
+		version:         config.Version,
+		context:         ctx,
 	}
 
 	if config.Org == "" {
 		return errors.New("'org' cannot be empty in the configuration")
 	}
 	Org = config.Org
+	repo := config.Repository
+
+	// Create metadata repository session
+	log.Debugf("Creating new metadata repository of type %s with configuration %+v (org: %s)", repo.Type, repo.Config, Org)
+
+	var metadataRepo dataset.MetadataRepository
+	var err error
+	switch repo.Type {
+	case "s3":
+		metadataRepo, err = s3metadatarepository.NewDefaultRepository(repo.Config)
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.New("failed to determine metadata repository type, or type not supported: " + repo.Type)
+	}
 
 	// Create a shared session
 	for name, c := range config.Accounts {
 		log.Debugf("Creating new service for account '%s' with key '%s' in region '%s' (org: %s)", name, c.Akid, c.Region, Org)
+		s.datasetServices[name] = dataset.NewService(
+			dataset.WithMetadataRepository(metadataRepo),
+		)
 	}
 
 	publicURLs := map[string]string{

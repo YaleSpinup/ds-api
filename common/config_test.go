@@ -21,6 +21,17 @@ var testConfig = []byte(
 			"secret": "secret2"
 		  }
 		},
+		"repository": {
+			"type": "s3",
+			"config": {
+			  "bucket": "some-metadata-repository",
+			  "region": "us-east-1",
+			  "akid": "key3",
+			  "secret": "secret3",
+			  "endpoint": "https://s3.horseradishsys.com",
+			  "awesome": true
+			}
+		  },
 		"token": "SEKRET",
 		"logLevel": "info",
 		"org": "test"
@@ -41,6 +52,17 @@ func TestReadConfig(t *testing.T) {
 				Region: "us-west-1",
 				Akid:   "key2",
 				Secret: "secret2",
+			},
+		},
+		Repository: Repository{
+			Type: "s3",
+			Config: map[string]interface{}{
+				"bucket":   "some-metadata-repository",
+				"region":   "us-east-1",
+				"akid":     "key3",
+				"secret":   "secret3",
+				"endpoint": "https://s3.horseradishsys.com",
+				"awesome":  true,
 			},
 		},
 		Token:    "SEKRET",
