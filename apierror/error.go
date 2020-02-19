@@ -1,7 +1,6 @@
 package apierror
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -36,15 +35,10 @@ type Error struct {
 
 // New constructs an Error and returns it as an error
 func New(code, message string, err error) Error {
-	origErr := err
-	if err == nil {
-		origErr = errors.New("")
-	}
-
 	return Error{
 		Code:    code,
 		Message: message,
-		OrigErr: origErr,
+		OrigErr: err,
 	}
 }
 
@@ -55,5 +49,13 @@ func (e Error) Error() string {
 
 // String returns the error as string
 func (e Error) String() string {
-	return fmt.Sprintf("%s: %s (%s)", e.Code, e.Message, e.OrigErr.Error())
+	if e.OrigErr != nil {
+		return fmt.Sprintf("%s: %s (%s)", e.Code, e.Message, e.OrigErr)
+	}
+	return fmt.Sprintf("%s: %s", e.Code, e.Message)
+}
+
+// Unwrap returns the contained error
+func (e Error) Unwrap() error {
+	return e.OrigErr
 }

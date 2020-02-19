@@ -12,6 +12,7 @@ import (
 type Config struct {
 	ListenAddress string
 	Accounts      map[string]Account
+	Repository    Repository
 	Token         string
 	LogLevel      string
 	Version       Version
@@ -24,6 +25,12 @@ type Account struct {
 	Region   string
 	Akid     string
 	Secret   string
+}
+
+// Repository is the configuration for the metadata respository
+type Repository struct {
+	Type   string
+	Config map[string]interface{}
 }
 
 // Version carries around the API version information
