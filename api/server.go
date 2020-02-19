@@ -10,7 +10,7 @@ import (
 
 	"github.com/YaleSpinup/ds-api/common"
 	"github.com/YaleSpinup/ds-api/dataset"
-	s3metadatarepository "github.com/YaleSpinup/ds-api/s3repository"
+	"github.com/YaleSpinup/ds-api/s3metadatarepository"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 
