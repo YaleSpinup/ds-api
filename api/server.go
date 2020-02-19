@@ -51,7 +51,7 @@ func NewServer(config common.Config) error {
 	repo := config.Repository
 
 	// Create metadata repository session
-	log.Debugf("Creating new metadata repository of type %s with configuration %+v (org: %s)", repo.Type, repo.Config, Org)
+	log.Debugf("Creating new MetadataRepository of type %s with configuration %+v (org: %s)", repo.Type, repo.Config, Org)
 
 	var metadataRepo dataset.MetadataRepository
 	var err error

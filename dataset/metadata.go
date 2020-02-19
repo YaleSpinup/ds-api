@@ -27,7 +27,7 @@ type Metadata struct {
 	SourceIDs           []string   `json:"source_id"`
 }
 
-// UnmarshalJSON is a custom JSON unmarsaller for metadata
+// UnmarshalJSON is a custom JSON unmarshaller for metadata
 func (m *Metadata) UnmarshalJSON(j []byte) error {
 	var rawStrings map[string]interface{}
 
@@ -202,7 +202,7 @@ func (m *Metadata) UnmarshalJSON(j []byte) error {
 	return nil
 }
 
-// MarshalJSON is a custom JSON marsaller for metadata
+// MarshalJSON is a custom JSON marshaller for metadata
 func (m Metadata) MarshalJSON() ([]byte, error) {
 	createdAt := ""
 	if m.CreatedAt != nil {

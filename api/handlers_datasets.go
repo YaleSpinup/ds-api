@@ -27,7 +27,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("creating data set for account %s", account)
+	log.Infof("creating data set for account %s", account)
 
 	id := service.NewID()
 
