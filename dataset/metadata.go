@@ -19,6 +19,7 @@ type Metadata struct {
 	CreatedBy           string     `json:"created_by"`
 	DataClassifications []string   `json:"data_classifications"`
 	DataFormat          string     `json:"data_format"`
+	DataStorage         string     `json:"data_storage"`
 	Derivative          bool       `json:"derivative"`
 	DuaURL              *url.URL   `json:"dua_url"`
 	ModifiedAt          *time.Time `json:"modified_at"`
@@ -115,6 +116,15 @@ func (m *Metadata) UnmarshalJSON(j []byte) error {
 			return errors.New(msg)
 		} else {
 			m.DataFormat = s
+		}
+	}
+
+	if dataStorage, ok := rawStrings["data_storage"]; ok {
+		if s, ok := dataStorage.(string); !ok {
+			msg := fmt.Sprintf("data_storage is not a string: %+v", rawStrings["data_storage"])
+			return errors.New(msg)
+		} else {
+			m.DataStorage = s
 		}
 	}
 
@@ -232,6 +242,7 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 		CreatedBy           string   `json:"created_by"`
 		DataClassifications []string `json:"data_classifications"`
 		DataFormat          string   `json:"data_format"`
+		DataStorage         string   `json:"data_storage"`
 		Derivative          bool     `json:"derivative"`
 		DuaURL              string   `json:"dua_url"`
 		ModifiedAt          string   `json:"modified_at"`
@@ -246,6 +257,7 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 		CreatedBy:           m.CreatedBy,
 		DataClassifications: m.DataClassifications,
 		DataFormat:          m.DataFormat,
+		DataStorage:         m.DataStorage,
 		DuaURL:              duaURL,
 		ModifiedAt:          modifiedAt,
 		ModifiedBy:          m.ModifiedBy,

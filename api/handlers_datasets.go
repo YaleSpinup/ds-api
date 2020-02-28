@@ -29,12 +29,9 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Infof("creating data set for account %s", account)
 
-	id := service.NewID()
-
-	log.Debugf("generated random id %s for new data set", id)
-
 	input := struct {
 		Name     string            `json:"name"`
+		Type     string            `json:"type"`
 		Tags     []*dataset.Tag    `json:"tags"`
 		Metadata *dataset.Metadata `json:"metadata"`
 	}{}
@@ -46,13 +43,42 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// override metadata id and name
-	input.Metadata.ID = id
-	input.Metadata.Name = input.Name
+	if input.Name == "" {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "dataset name is required", nil))
+		return
+	}
+
+	if input.Type == "" {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "dataset type is required", nil))
+		return
+	}
+
+	dataRepo, ok := service.DataRepository[input.Type]
+	if !ok {
+		msg := fmt.Sprintf("requested dataset type not supported for this account: %s", input.Type)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		return
+	}
 
 	log.Debugf("decoded request body into data set input %+v", input)
 
-	// setup err var, rollback function list and defer execution, note that we depend on the err variable defined above this
+	id := service.NewID()
+
+	log.Debugf("generated random id %s for new data set", id)
+
+	// override metadata ID, Name and DataStorage
+	input.Metadata.ID = id
+	input.Metadata.Name = input.Name
+	input.Metadata.DataStorage = input.Type
+
+	metadata, err := json.Marshal(&input.Metadata)
+	if err != nil {
+		msg := fmt.Sprintf("cannot encode metadata input: %s", err)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+		return
+	}
+
+	// setup rollback function list and defer execution, note that we depend on the err variable defined above this
 	var rollBackTasks []func() error
 	defer func() {
 		if err != nil {
@@ -61,8 +87,20 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// TODO: create datset storage location
-	// TODO: create metadata in repository
+	// create dataset storage location
+	err = dataRepo.Provision(id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// create metadata in repository
+	err = service.MetadataRepository.Create(id, metadata)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
 	// TODO: create IAM policy
 
 	out, err := json.Marshal(&input)
