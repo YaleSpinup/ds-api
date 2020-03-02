@@ -22,15 +22,7 @@ type Config struct {
 // Account is the configuration for an individual account
 type Account struct {
 	StorageProviders []string
-	Config           AccountCredentials
-}
-
-// AccountCredentials is the auth credentials for an individual account
-type AccountCredentials struct {
-	Endpoint string
-	Region   string
-	Akid     string
-	Secret   string
+	Config           map[string]interface{}
 }
 
 // MetadataRepository is the configuration for the metadata respository

@@ -51,18 +51,18 @@ func TestReadConfig(t *testing.T) {
 		Accounts: map[string]Account{
 			"provider1": Account{
 				StorageProviders: []string{"s3"},
-				Config: AccountCredentials{
-					Region: "us-east-1",
-					Akid:   "key1",
-					Secret: "secret1",
+				Config: map[string]interface{}{
+					"region": "us-east-1",
+					"akid":   "key1",
+					"secret": "secret1",
 				},
 			},
 			"provider2": Account{
 				StorageProviders: []string{"s3"},
-				Config: AccountCredentials{
-					Region: "us-west-1",
-					Akid:   "key2",
-					Secret: "secret2",
+				Config: map[string]interface{}{
+					"region": "us-west-1",
+					"akid":   "key2",
+					"secret": "secret2",
 				},
 			},
 		},

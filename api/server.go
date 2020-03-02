@@ -57,13 +57,17 @@ func NewServer(config common.Config) error {
 
 	var metadataRepo dataset.MetadataRepository
 	var err error
+
 	switch metadata.Type {
 	case "s3":
-		if metadata.Config["prefix"] == nil {
-			metadata.Config["prefix"] = Org
-		} else {
-			metadata.Config["prefix"] = metadata.Config["prefix"].(string) + "/" + Org
+		prefix := Org
+		if c, ok := metadata.Config["prefix"]; ok {
+			if p, ok := c.(string); ok {
+				prefix = p + "/" + prefix
+			}
 		}
+		metadata.Config["prefix"] = prefix
+
 		metadataRepo, err = s3metadatarepository.NewDefaultRepository(metadata.Config)
 		if err != nil {
 			return err
@@ -74,21 +78,19 @@ func NewServer(config common.Config) error {
 
 	// Create dataset service sessions
 	for name, a := range config.Accounts {
-		creds := map[string]interface{}{
-			"region":   a.Config.Region,
-			"akid":     a.Config.Akid,
-			"secret":   a.Config.Secret,
-			"endpoint": a.Config.Endpoint,
-		}
-		log.Debugf("Creating new service for account '%s' with key '%s' in region '%s' (org: %s, providers: %s)", name, creds["akid"], creds["region"], Org, a.StorageProviders)
+		log.Debugf("Creating new service for account '%s' with key '%s' in region '%s' (org: %s, providers: %s)", name, a.Config["akid"], a.Config["region"], Org, a.StorageProviders)
 
 		dataRepos := make(map[string]dataset.DataRepository)
+
+		if a.StorageProviders == nil || len(a.StorageProviders) == 0 {
+			return errors.New("no storage providers configured for account: " + name)
+		}
 
 		// initialize all supported data storage providers for each account
 		for _, p := range a.StorageProviders {
 			switch p {
 			case "s3":
-				dataRepo, err := s3datarepository.NewDefaultRepository(creds)
+				dataRepo, err := s3datarepository.NewDefaultRepository(a.Config)
 				if err != nil {
 					return err
 				}
