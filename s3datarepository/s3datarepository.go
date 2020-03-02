@@ -1,4 +1,4 @@
-package s3metadatarepository
+package s3datarepository
 
 import (
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,7 +12,7 @@ import (
 // S3RepositoryOption is a function to set repository options
 type S3RepositoryOption func(*S3Repository)
 
-// S3Repository is an implementation of a metadata respository in S3
+// S3Repository is an implementation of a data respository in S3
 type S3Repository struct {
 	S3     s3iface.S3API
 	Bucket string
@@ -76,7 +76,7 @@ func NewDefaultRepository(config map[string]interface{}) (*S3Repository, error) 
 
 // New creates an S3Repository from a list of S3RepositoryOption functions
 func New(opts ...S3RepositoryOption) (*S3Repository, error) {
-	log.Info("creating new s3 metadata repository provider")
+	log.Info("creating new s3 repository provider")
 
 	s := S3Repository{}
 	s.config = aws.NewConfig()
@@ -143,26 +143,14 @@ func WithPrefix(prefix string) S3RepositoryOption {
 // 	}
 // }
 
-// Create creates a new metadata object in the repository
-func (s *S3Repository) Create(id string, data []byte) error {
-	log.Debugf("creating s3metadatarepository object with id: %s\n%+v", id, string(data))
+// Provision satisfies the ability to provision a data repository
+func (s *S3Repository) Provision(id string) error {
+	log.Debugf("provisioning s3datarepository with id: %s", id)
 	return nil
 }
 
-// Get gets a metadata object from the repository by id
-func (s *S3Repository) Get(id string) ([]byte, error) {
-	log.Debugf("getting s3metadatarepository object with id: %s", id)
-	return []byte{}, nil
-}
-
-// Update updates a metadata object in the repository
-func (s *S3Repository) Update(id string, data []byte) error {
-	log.Debugf("updating s3metadatarepository object with id: %s\n%+v", id, string(data))
-	return nil
-}
-
-// Delete deletes a metadata object from the repository by id
-func (s *S3Repository) Delete(id string) error {
-	log.Debugf("deleting s3metadatarepository object with id: %s", id)
+// Deprovision satisfies the ability to deprovision a data repository
+func (s *S3Repository) Deprovision(id string) error {
+	log.Debugf("deprovisioning s3datarepository with id: %s", id)
 	return nil
 }

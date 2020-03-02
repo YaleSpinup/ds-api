@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/YaleSpinup/ds-api/common"
 	"github.com/YaleSpinup/ds-api/dataset"
+	"github.com/YaleSpinup/ds-api/s3datarepository"
 	"github.com/YaleSpinup/ds-api/s3metadatarepository"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -48,28 +50,60 @@ func NewServer(config common.Config) error {
 		return errors.New("'org' cannot be empty in the configuration")
 	}
 	Org = config.Org
-	repo := config.Repository
+	metadata := config.MetadataRepository
 
-	// Create metadata repository session
-	log.Debugf("Creating new MetadataRepository of type %s with configuration %+v (org: %s)", repo.Type, repo.Config, Org)
+	// Initialize metadata repository session
+	log.Debugf("Creating new session for MetadataRepository of type %s with configuration %+v (org: %s)", metadata.Type, metadata.Config, Org)
 
 	var metadataRepo dataset.MetadataRepository
 	var err error
-	switch repo.Type {
+
+	switch metadata.Type {
 	case "s3":
-		metadataRepo, err = s3metadatarepository.NewDefaultRepository(repo.Config)
+		prefix := Org
+		if c, ok := metadata.Config["prefix"]; ok {
+			if p, ok := c.(string); ok {
+				prefix = p + "/" + prefix
+			}
+		}
+		metadata.Config["prefix"] = prefix
+
+		metadataRepo, err = s3metadatarepository.NewDefaultRepository(metadata.Config)
 		if err != nil {
 			return err
 		}
 	default:
-		return errors.New("failed to determine metadata repository type, or type not supported: " + repo.Type)
+		return errors.New("failed to determine metadata repository type, or type not supported: " + metadata.Type)
 	}
 
-	// Create a shared session
-	for name, c := range config.Accounts {
-		log.Debugf("Creating new service for account '%s' with key '%s' in region '%s' (org: %s)", name, c.Akid, c.Region, Org)
+	// Create dataset service sessions
+	for name, a := range config.Accounts {
+		log.Debugf("Creating new service for account '%s' with key '%s' in region '%s' (org: %s, providers: %s)", name, a.Config["akid"], a.Config["region"], Org, a.StorageProviders)
+
+		dataRepos := make(map[string]dataset.DataRepository)
+
+		if a.StorageProviders == nil || len(a.StorageProviders) == 0 {
+			return errors.New("no storage providers configured for account: " + name)
+		}
+
+		// initialize all supported data storage providers for each account
+		for _, p := range a.StorageProviders {
+			switch p {
+			case "s3":
+				dataRepo, err := s3datarepository.NewDefaultRepository(a.Config)
+				if err != nil {
+					return err
+				}
+				dataRepos["s3"] = dataRepo
+			default:
+				msg := fmt.Sprintf("failed to determine data repository provider for account %s, or storage provider not supported: %s", name, p)
+				return errors.New(msg)
+			}
+		}
+
 		s.datasetServices[name] = dataset.NewService(
 			dataset.WithMetadataRepository(metadataRepo),
+			dataset.WithDataRepository(dataRepos),
 		)
 	}
 

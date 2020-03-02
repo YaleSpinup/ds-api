@@ -10,25 +10,23 @@ import (
 
 // Config is representation of the configuration data
 type Config struct {
-	ListenAddress string
-	Accounts      map[string]Account
-	Repository    Repository
-	Token         string
-	LogLevel      string
-	Version       Version
-	Org           string
+	ListenAddress      string
+	Accounts           map[string]Account
+	MetadataRepository MetadataRepository
+	Token              string
+	LogLevel           string
+	Version            Version
+	Org                string
 }
 
 // Account is the configuration for an individual account
 type Account struct {
-	Endpoint string
-	Region   string
-	Akid     string
-	Secret   string
+	StorageProviders []string
+	Config           map[string]interface{}
 }
 
-// Repository is the configuration for the metadata respository
-type Repository struct {
+// MetadataRepository is the configuration for the metadata respository
+type MetadataRepository struct {
 	Type   string
 	Config map[string]interface{}
 }

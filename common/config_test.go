@@ -9,29 +9,35 @@ import (
 var testConfig = []byte(
 	`{
 		"listenAddress": ":8000",
-		"accounts": {
-		  "provider1": {
-			"region": "us-east-1",
-			"akid": "key1",
-			"secret": "secret1"
-		  },
-		  "provider2": {
-			"region": "us-west-1",
-			"akid": "key2",
-			"secret": "secret2"
-		  }
-		},
-		"repository": {
+		"metadataRepository": {
 			"type": "s3",
 			"config": {
 			  "bucket": "some-metadata-repository",
 			  "region": "us-east-1",
-			  "akid": "key3",
-			  "secret": "secret3",
+			  "akid": "keymeta",
+			  "secret": "secretmeta",
 			  "endpoint": "https://s3.horseradishsys.com",
 			  "awesome": true
 			}
+		},
+		"accounts": {
+		  "provider1": {
+				"storageProviders": ["s3"],
+				"config": {
+					"region": "us-east-1",
+					"akid": "key1",
+					"secret": "secret1"
+				}
 		  },
+		  "provider2": {
+				"storageProviders": ["s3"],
+				"config": {
+					"region": "us-west-1",
+					"akid": "key2",
+					"secret": "secret2"
+				}
+		  }
+		},
 		"token": "SEKRET",
 		"logLevel": "info",
 		"org": "test"
@@ -44,23 +50,29 @@ func TestReadConfig(t *testing.T) {
 		ListenAddress: ":8000",
 		Accounts: map[string]Account{
 			"provider1": Account{
-				Region: "us-east-1",
-				Akid:   "key1",
-				Secret: "secret1",
+				StorageProviders: []string{"s3"},
+				Config: map[string]interface{}{
+					"region": "us-east-1",
+					"akid":   "key1",
+					"secret": "secret1",
+				},
 			},
 			"provider2": Account{
-				Region: "us-west-1",
-				Akid:   "key2",
-				Secret: "secret2",
+				StorageProviders: []string{"s3"},
+				Config: map[string]interface{}{
+					"region": "us-west-1",
+					"akid":   "key2",
+					"secret": "secret2",
+				},
 			},
 		},
-		Repository: Repository{
+		MetadataRepository: MetadataRepository{
 			Type: "s3",
 			Config: map[string]interface{}{
 				"bucket":   "some-metadata-repository",
 				"region":   "us-east-1",
-				"akid":     "key3",
-				"secret":   "secret3",
+				"akid":     "keymeta",
+				"secret":   "secretmeta",
 				"endpoint": "https://s3.horseradishsys.com",
 				"awesome":  true,
 			},

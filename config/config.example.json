@@ -1,10 +1,23 @@
 { 
   "listenAddress": ":8080",
-  "accounts": {
-    "someaccount": {
+  "metadataRepository": {
+    "type": "s3",
+    "config": {
+      "bucket": "dsapi-example-metadata-repository",
+      "prefix": "datasets",
       "region": "us-east-1",
       "akid": "xxxxxxxxxxxxxxxxxxxxxxxx",
       "secret": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+    }
+  },
+  "accounts": {
+    "someaccount": {
+      "storageProviders": ["s3"],
+      "config": {
+        "region": "us-east-1",
+        "akid": "xxxxxxxxxxxxxxxxxxxxxxxx",
+        "secret": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+      }
     }
   },
   "token": "xxxxxx",
