@@ -10,4 +10,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.4.1
 	github.com/sirupsen/logrus v1.4.2
+	golang.org/x/text v0.3.2
+	google.golang.org/appengine v1.6.5
 )

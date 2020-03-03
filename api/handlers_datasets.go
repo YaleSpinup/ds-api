@@ -7,6 +7,7 @@ import (
 
 	"github.com/YaleSpinup/ds-api/apierror"
 	"github.com/YaleSpinup/ds-api/dataset"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 )
@@ -71,6 +72,26 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	input.Metadata.Name = input.Name
 	input.Metadata.DataStorage = input.Type
 
+	// override tags for ID and Name
+	// TODO: tag value validation, including the Name
+	//  In general, allowed characters in tags are letters, numbers, spaces representable in UTF-8, and the following characters: . : + = @ _ / - (hyphen).
+	newTags := []*dataset.Tag{
+		&dataset.Tag{
+			Key:   aws.String("ID"),
+			Value: aws.String(id),
+		},
+		&dataset.Tag{
+			Key:   aws.String("Name"),
+			Value: aws.String(input.Name),
+		},
+	}
+	for _, t := range input.Tags {
+		if aws.StringValue(t.Key) != "ID" && aws.StringValue(t.Key) != "Name" {
+			newTags = append(newTags, t)
+		}
+	}
+	input.Tags = newTags
+
 	metadata, err := json.Marshal(&input.Metadata)
 	if err != nil {
 		msg := fmt.Sprintf("cannot encode metadata input: %s", err)
@@ -82,26 +103,33 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	var rollBackTasks []func() error
 	defer func() {
 		if err != nil {
-			log.Errorf("recovering from error: %s, executing %d rollback tasks", err, len(rollBackTasks))
+			log.Errorf("recovering from error creating dataset: %s, executing %d rollback tasks", err, len(rollBackTasks))
 			rollBack(&rollBackTasks)
 		}
 	}()
 
 	// create dataset storage location
-	err = dataRepo.Provision(id)
-	if err != nil {
+	if err = dataRepo.Provision(r.Context(), id, input.Tags); err != nil {
 		handleError(w, err)
 		return
 	}
+
+	// append dataset cleanup to rollback tasks
+	rbfunc := func() error {
+		return func() error {
+			if err := dataRepo.Delete(r.Context(), id); err != nil {
+				return err
+			}
+			return nil
+		}()
+	}
+	rollBackTasks = append(rollBackTasks, rbfunc)
 
 	// create metadata in repository
-	err = service.MetadataRepository.Create(id, metadata)
-	if err != nil {
+	if err = service.MetadataRepository.Create(id, metadata); err != nil {
 		handleError(w, err)
 		return
 	}
-
-	// TODO: create IAM policy
 
 	out, err := json.Marshal(&input)
 	if err != nil {
@@ -111,7 +139,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
+	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(out))
 }
 

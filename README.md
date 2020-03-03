@@ -25,7 +25,7 @@ POST /v1/ds/{account}/datasets
     "name": "awesome-dataset-of-stuff",
     "tags": [
         { "key": "Application", "value": "ButWhyyyyy" },
-        { "key": "COA", "value": "Take.My.Money.$$$$" },
+        { "key": "COA", "value": "Take.My.Money" },
         { "key": "CreatedBy", "value": "SomeGuy" }
     ],
     "metadata": {
@@ -67,7 +67,7 @@ POST /v1/ds/{account}/datasets
 
 ## Authentication
 
-Authentication is accomplished via a pre-shared key.  This is done via the `X-Auth-Token` header.
+Authentication is accomplished using a pre-shared key via the `X-Auth-Token` header.
 
 ## Author
 
