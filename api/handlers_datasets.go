@@ -74,7 +74,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	// override tags for ID and Name
 	// TODO: tag value validation, including the Name
-	//  In general, allowed characters in tags are letters, numbers, spaces representable in UTF-8, and the following characters: . : + = @ _ / - (hyphen).
+	// In general, allowed characters in tags are letters, numbers, spaces representable in UTF-8, and the following characters: . : + = @ _ / - (hyphen).
 	newTags := []*dataset.Tag{
 		&dataset.Tag{
 			Key:   aws.String("ID"),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/YaleSpinup/ds-api/apierror"
@@ -179,7 +180,7 @@ func (s *S3Repository) bucketExists(ctx context.Context, bucketName string) (boo
 // 3. Block all public access to the bucket
 // 4. Enable AWS managed serverside encryption (AES-256) for the bucket
 // 5. Add tags to the bucket
-func (s *S3Repository) Provision(ctx context.Context, id string, rawtags []*dataset.Tag) error {
+func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*dataset.Tag) error {
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
@@ -198,8 +199,8 @@ func (s *S3Repository) Provision(ctx context.Context, id string, rawtags []*data
 	}
 
 	// prepare tags
-	tags := make([]*s3.Tag, len(rawtags))
-	for i, tag := range rawtags {
+	tags := make([]*s3.Tag, len(datasetTags))
+	for i, tag := range datasetTags {
 		tags[i] = &s3.Tag{
 			Key:   tag.Key,
 			Value: tag.Value,
@@ -291,7 +292,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, rawtags []*data
 
 	// add tags
 	if len(tags) > 0 {
-		log.Debugf("adding tags for bucket: %s\n%+v", name, tags)
+		log.Debugf("adding tags for bucket '%s': %+v", name, tags)
 		if _, err = s.S3.PutBucketTaggingWithContext(ctx, &s3.PutBucketTaggingInput{
 			Bucket:  aws.String(name),
 			Tagging: &s3.Tagging{TagSet: tags},
@@ -327,12 +328,52 @@ func (s *S3Repository) Delete(ctx context.Context, id string) error {
 	name := "dataset-" + id
 
 	// delete the s3 bucket
-	_, err := s.S3.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{
-		Bucket: aws.String(name),
-	})
+	_, err := s.S3.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{Bucket: aws.String(name)})
 	if err != nil {
 		return ErrCode("failed to delete s3 bucket", err)
 	}
 
 	return nil
+}
+
+type stop struct {
+	error
+}
+
+// retry is stolen from https://upgear.io/blog/simple-golang-retry-function/
+func retry(attempts int, sleep time.Duration, f func() error) error {
+	if err := f(); err != nil {
+		if s, ok := err.(stop); ok {
+			// Return the original error for later checking
+			return s.error
+		}
+
+		if attempts--; attempts > 0 {
+			// Add some randomness to prevent creating a Thundering Herd
+			jitter := time.Duration(rand.Int63n(int64(sleep)))
+			sleep = sleep + jitter/2
+
+			time.Sleep(sleep)
+			return retry(attempts, 2*sleep, f)
+		}
+		return err
+	}
+
+	return nil
+}
+
+// rollBack executes functions from a stack of rollback functions
+func rollBack(t *[]func() error) {
+	if t == nil {
+		return
+	}
+
+	tasks := *t
+	log.Errorf("executing rollback of %d tasks", len(tasks))
+	for i := len(tasks) - 1; i >= 0; i-- {
+		f := tasks[i]
+		if funcerr := f(); funcerr != nil {
+			log.Errorf("rollback task error: %s, continuing rollback", funcerr)
+		}
+	}
 }
