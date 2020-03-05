@@ -180,14 +180,18 @@ func (s *S3Repository) bucketExists(ctx context.Context, bucketName string) (boo
 // 3. Block all public access to the bucket
 // 4. Enable AWS managed serverside encryption (AES-256) for the bucket
 // 5. Add tags to the bucket
-func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*dataset.Tag) error {
+func (s *S3Repository) Provision(ctx context.Context, org, id string, datasetTags []*dataset.Tag) error {
+	if org == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty org"))
+	}
+
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
-	log.Debugf("provisioning s3datarepository with id: %s", id)
+	log.Debugf("provisioning s3datarepository in Org '%s' with id: %s", org, id)
 
-	name := "dataset-" + id
+	name := "dataset-" + org + "-" + id
 
 	// checks if a bucket exists in the account
 	// in us-east-1 (only) bucket creation will succeed if the bucket already exists in your
@@ -307,25 +311,33 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 }
 
 // Deprovision satisfies the ability to deprovision a data repository
-func (s *S3Repository) Deprovision(ctx context.Context, id string) error {
+func (s *S3Repository) Deprovision(ctx context.Context, org, id string) error {
+	if org == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty org"))
+	}
+
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
-	log.Debugf("deprovisioning s3datarepository with id: %s", id)
+	log.Debugf("deprovisioning s3datarepository in Org '%s' with id: %s", org, id)
 
 	return nil
 }
 
 // Delete deletes a data repository in S3
-func (s *S3Repository) Delete(ctx context.Context, id string) error {
+func (s *S3Repository) Delete(ctx context.Context, org, id string) error {
+	if org == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty org"))
+	}
+
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
-	log.Debugf("deleting s3datarepository with id: %s", id)
+	log.Debugf("deleting s3datarepository in Org '%s' with id: %s", org, id)
 
-	name := "dataset-" + id
+	name := "dataset-" + org + "-" + id
 
 	// delete the s3 bucket
 	_, err := s.S3.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{Bucket: aws.String(name)})

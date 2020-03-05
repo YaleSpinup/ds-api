@@ -72,7 +72,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	input.Metadata.Name = input.Name
 	input.Metadata.DataStorage = input.Type
 
-	// override tags for ID and Name
+	// set tags for ID, Name, Org
 	// TODO: tag value validation, including the Name
 	// In general, allowed characters in tags are letters, numbers, spaces representable in UTF-8, and the following characters: . : + = @ _ / - (hyphen).
 	newTags := []*dataset.Tag{
@@ -84,9 +84,13 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 			Key:   aws.String("Name"),
 			Value: aws.String(input.Name),
 		},
+		&dataset.Tag{
+			Key:   aws.String("Org"),
+			Value: aws.String(Org),
+		},
 	}
 	for _, t := range input.Tags {
-		if aws.StringValue(t.Key) != "ID" && aws.StringValue(t.Key) != "Name" {
+		if aws.StringValue(t.Key) != "ID" && aws.StringValue(t.Key) != "Name" && aws.StringValue(t.Key) != "Org" {
 			newTags = append(newTags, t)
 		}
 	}
@@ -109,7 +113,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// create dataset storage location
-	if err = dataRepo.Provision(r.Context(), id, input.Tags); err != nil {
+	if err = dataRepo.Provision(r.Context(), Org, id, input.Tags); err != nil {
 		handleError(w, err)
 		return
 	}
@@ -117,7 +121,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	// append dataset cleanup to rollback tasks
 	rbfunc := func() error {
 		return func() error {
-			if err := dataRepo.Delete(r.Context(), id); err != nil {
+			if err := dataRepo.Delete(r.Context(), Org, id); err != nil {
 				return err
 			}
 			return nil
