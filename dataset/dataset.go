@@ -1,6 +1,8 @@
 package dataset
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 )
 
@@ -20,8 +22,9 @@ type MetadataRepository interface {
 
 // DataRepository is an interface for data repository
 type DataRepository interface {
-	Provision(id string) error
-	Deprovision(id string) error
+	Provision(ctx context.Context, id string, tags []*Tag) error
+	Deprovision(ctx context.Context, id string) error
+	Delete(ctx context.Context, id string) error
 }
 
 // ServiceOption is a function to set service options
