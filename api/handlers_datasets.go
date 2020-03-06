@@ -28,7 +28,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infof("creating data set for account %s", account)
+	log.Infof("creating data set in account '%s'", account)
 
 	input := struct {
 		Name     string            `json:"name"`
@@ -90,7 +90,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	for _, t := range input.Tags {
-		if aws.StringValue(t.Key) != "ID" && aws.StringValue(t.Key) != "Name" && aws.StringValue(t.Key) != "Org" {
+		if aws.StringValue(t.Key) != "ID" && aws.StringValue(t.Key) != "Name" && aws.StringValue(t.Key) != "spinup:org" {
 			newTags = append(newTags, t)
 		}
 	}
@@ -113,7 +113,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// create dataset storage location
-	if err = dataRepo.Provision(r.Context(), Org, id, input.Tags); err != nil {
+	if err = dataRepo.Provision(r.Context(), id, input.Tags); err != nil {
 		handleError(w, err)
 		return
 	}
@@ -121,7 +121,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	// append dataset cleanup to rollback tasks
 	rbfunc := func() error {
 		return func() error {
-			if err := dataRepo.Delete(r.Context(), Org, id); err != nil {
+			if err := dataRepo.Delete(r.Context(), id); err != nil {
 				return err
 			}
 			return nil
