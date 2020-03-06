@@ -94,6 +94,7 @@ func NewServer(config common.Config) error {
 				if err != nil {
 					return err
 				}
+				dataRepo.NamePrefix = "dataset-" + Org
 				dataRepos["s3"] = dataRepo
 			default:
 				msg := fmt.Sprintf("failed to determine data repository provider for account %s, or storage provider not supported: %s", name, p)

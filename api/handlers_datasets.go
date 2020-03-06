@@ -85,7 +85,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 			Value: aws.String(input.Name),
 		},
 		&dataset.Tag{
-			Key:   aws.String("Org"),
+			Key:   aws.String("spinup:org"),
 			Value: aws.String(Org),
 		},
 	}

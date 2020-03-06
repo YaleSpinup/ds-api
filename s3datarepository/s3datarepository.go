@@ -23,15 +23,14 @@ type S3RepositoryOption func(*S3Repository)
 
 // S3Repository is an implementation of a data respository in S3
 type S3Repository struct {
-	S3     s3iface.S3API
-	Bucket string
-	Prefix string
-	config *aws.Config
+	NamePrefix string
+	S3         s3iface.S3API
+	config     *aws.Config
 }
 
 // NewDefaultRepository creates a new repository from the default config data
 func NewDefaultRepository(config map[string]interface{}) (*S3Repository, error) {
-	var akid, secret, token, region, endpoint, bucket, prefix string
+	var akid, secret, token, region, endpoint string
 	if v, ok := config["akid"].(string); ok {
 		akid = v
 	}
@@ -52,14 +51,6 @@ func NewDefaultRepository(config map[string]interface{}) (*S3Repository, error) 
 		endpoint = v
 	}
 
-	if v, ok := config["bucket"].(string); ok {
-		bucket = v
-	}
-
-	if v, ok := config["prefix"].(string); ok {
-		prefix = v
-	}
-
 	opts := []S3RepositoryOption{
 		WithStaticCredentials(akid, secret, token),
 	}
@@ -70,14 +61,6 @@ func NewDefaultRepository(config map[string]interface{}) (*S3Repository, error) 
 
 	if endpoint != "" {
 		opts = append(opts, WithEndpoint(endpoint))
-	}
-
-	if bucket != "" {
-		opts = append(opts, WithBucket(bucket))
-	}
-
-	if prefix != "" {
-		opts = append(opts, WithPrefix(prefix))
 	}
 
 	return New(opts...)
@@ -124,22 +107,6 @@ func WithEndpoint(endpoint string) S3RepositoryOption {
 	}
 }
 
-// WithBucket sets the bucket for the S3Repository
-func WithBucket(bucket string) S3RepositoryOption {
-	return func(s *S3Repository) {
-		log.Debugf("setting bucket %s", bucket)
-		s.Bucket = bucket
-	}
-}
-
-// WithPrefix sets the bucket prefix for the S3Repository
-func WithPrefix(prefix string) S3RepositoryOption {
-	return func(s *S3Repository) {
-		log.Debugf("setting bucket prefix %s", prefix)
-		s.Prefix = prefix
-	}
-}
-
 // func WithLoggingBucket(bucket string) S3RepositoryOption {
 // 	return func(s *S3Repository) {
 // 		s.LoggingBucket = bucket
@@ -180,18 +147,17 @@ func (s *S3Repository) bucketExists(ctx context.Context, bucketName string) (boo
 // 3. Block all public access to the bucket
 // 4. Enable AWS managed serverside encryption (AES-256) for the bucket
 // 5. Add tags to the bucket
-func (s *S3Repository) Provision(ctx context.Context, org, id string, datasetTags []*dataset.Tag) error {
-	if org == "" {
-		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty org"))
-	}
-
+func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*dataset.Tag) error {
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
-	log.Debugf("provisioning s3datarepository in Org '%s' with id: %s", org, id)
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
 
-	name := "dataset-" + org + "-" + id
+	log.Debugf("provisioning s3datarepository: %s", name)
 
 	// checks if a bucket exists in the account
 	// in us-east-1 (only) bucket creation will succeed if the bucket already exists in your
@@ -311,38 +277,38 @@ func (s *S3Repository) Provision(ctx context.Context, org, id string, datasetTag
 }
 
 // Deprovision satisfies the ability to deprovision a data repository
-func (s *S3Repository) Deprovision(ctx context.Context, org, id string) error {
-	if org == "" {
-		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty org"))
-	}
-
+func (s *S3Repository) Deprovision(ctx context.Context, id string) error {
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
-	log.Debugf("deprovisioning s3datarepository in Org '%s' with id: %s", org, id)
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
+
+	log.Debugf("deprovisioning s3datarepository: %s", name)
 
 	return nil
 }
 
 // Delete deletes a data repository in S3
-func (s *S3Repository) Delete(ctx context.Context, org, id string) error {
-	if org == "" {
-		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty org"))
-	}
-
+func (s *S3Repository) Delete(ctx context.Context, id string) error {
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
-	log.Debugf("deleting s3datarepository in Org '%s' with id: %s", org, id)
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
 
-	name := "dataset-" + org + "-" + id
+	log.Debugf("deleting s3datarepository: %s", name)
 
 	// delete the s3 bucket
 	_, err := s.S3.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{Bucket: aws.String(name)})
 	if err != nil {
-		return ErrCode("failed to delete s3 bucket", err)
+		return ErrCode("failed to delete s3 bucket "+name, err)
 	}
 
 	return nil
