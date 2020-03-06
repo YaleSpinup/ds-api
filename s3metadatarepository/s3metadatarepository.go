@@ -1,6 +1,15 @@
 package s3metadatarepository
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"strings"
+	"time"
+
+	"github.com/YaleSpinup/ds-api/apierror"
+	"github.com/YaleSpinup/ds-api/dataset"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -144,25 +153,111 @@ func WithPrefix(prefix string) S3RepositoryOption {
 // }
 
 // Create creates a new metadata object in the repository
-func (s *S3Repository) Create(id string, data []byte) error {
-	log.Debugf("creating s3metadatarepository object with id: %s\n%+v", id, string(data))
-	return nil
+func (s *S3Repository) Create(ctx context.Context, account, id string, metadata *dataset.Metadata) (*dataset.Metadata, error) {
+	if account == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty account"))
+	}
+
+	if id == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	log.Debugf("creating s3metadatarepository object in account '%s' with id '%s': %+v", account, id, metadata)
+
+	// set the created/modified time to right now
+	now := time.Now().UTC().Truncate(time.Second)
+	metadata.CreatedAt = &now
+	metadata.ModifiedAt = &now
+
+	key := s.Prefix + "/" + account
+	if !strings.HasSuffix(account, "/") && !strings.HasPrefix(id, "/") {
+		key = key + "/"
+	}
+	key = key + id
+
+	j, err := json.MarshalIndent(metadata, "", "\t")
+	if err != nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", err)
+	}
+
+	out, err := s.S3.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Body:        bytes.NewReader(j),
+		Bucket:      aws.String(s.Bucket),
+		ContentType: aws.String("application/json"),
+		Key:         aws.String(key),
+	})
+	if err != nil {
+		return nil, ErrCode("failed to put s3 metadata object "+key, err)
+	}
+
+	log.Debugf("output from s3 metadata object put: %+v", out)
+
+	return metadata, nil
 }
 
 // Get gets a metadata object from the repository by id
-func (s *S3Repository) Get(id string) ([]byte, error) {
-	log.Debugf("getting s3metadatarepository object with id: %s", id)
-	return []byte{}, nil
+func (s *S3Repository) Get(ctx context.Context, account, id string) (*dataset.Metadata, error) {
+	if account == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty account"))
+	}
+
+	if id == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	log.Debugf("getting s3metadatarepository object from account '%s' with id: %s", account, id)
+
+	key := s.Prefix + "/" + account
+	if !strings.HasSuffix(account, "/") && !strings.HasPrefix(id, "/") {
+		key = key + "/"
+	}
+	key = key + id
+
+	out, err := s.S3.GetObjectWithContext(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, ErrCode("failed to get metadata object from s3 "+key, err)
+	}
+
+	metadata := &dataset.Metadata{}
+	err = json.NewDecoder(out.Body).Decode(metadata)
+	if err != nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "failed to decode json from s3", err)
+	}
+
+	log.Debugf("output from getting s3 metadata '%s': %+v", key, metadata)
+
+	return metadata, nil
 }
 
 // Update updates a metadata object in the repository
-func (s *S3Repository) Update(id string, data []byte) error {
-	log.Debugf("updating s3metadatarepository object with id: %s\n%+v", id, string(data))
-	return nil
+func (s *S3Repository) Update(ctx context.Context, account, id string, metadata *dataset.Metadata) (*dataset.Metadata, error) {
+	if account == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty account"))
+	}
+
+	if id == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	log.Debugf("updating s3metadatarepository object in account '%s' with id '%s': %+v", account, id, metadata)
+
+	return metadata, nil
 }
 
 // Delete deletes a metadata object from the repository by id
-func (s *S3Repository) Delete(id string) error {
-	log.Debugf("deleting s3metadatarepository object with id: %s", id)
+func (s *S3Repository) Delete(ctx context.Context, account, id string) error {
+	if account == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty account"))
+	}
+
+	if id == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	log.Debugf("deleting s3metadatarepository object in account '%s' with id: %s", account, id)
+
 	return nil
 }

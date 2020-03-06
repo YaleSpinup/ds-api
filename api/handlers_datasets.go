@@ -96,13 +96,6 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	input.Tags = newTags
 
-	metadata, err := json.Marshal(&input.Metadata)
-	if err != nil {
-		msg := fmt.Sprintf("cannot encode metadata input: %s", err)
-		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
-		return
-	}
-
 	// setup rollback function list and defer execution, note that we depend on the err variable defined above this
 	var rollBackTasks []func() error
 	defer func() {
@@ -113,6 +106,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// create dataset storage location
+	log.Infof("provisioning dataset repository for %s", id)
 	if err = dataRepo.Provision(r.Context(), id, input.Tags); err != nil {
 		handleError(w, err)
 		return
@@ -130,21 +124,23 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	rollBackTasks = append(rollBackTasks, rbfunc)
 
 	// create metadata in repository
-	if err = service.MetadataRepository.Create(id, metadata); err != nil {
+	log.Infof("adding dataset metadata for %s", id)
+	out, err := service.MetadataRepository.Create(r.Context(), account, id, input.Metadata)
+	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	out, err := json.Marshal(&input)
+	j, err := json.Marshal(&out)
 	if err != nil {
-		msg := fmt.Sprintf("cannot encode input back into dataset output: %s", err)
+		msg := fmt.Sprintf("cannot encode dataset output into json: %s", err)
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(out))
+	w.Write(j)
 }
 
 func (s *server) DatasetListHandler(w http.ResponseWriter, r *http.Request) {
