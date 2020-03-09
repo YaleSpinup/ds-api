@@ -25,7 +25,7 @@ type Metadata struct {
 	ModifiedAt          *time.Time `json:"modified_at"`
 	ModifiedBy          string     `json:"modified_by"`
 	ProctorResponseURL  *url.URL   `json:"proctor_response_url"`
-	SourceIDs           []string   `json:"source_id"`
+	SourceIDs           []string   `json:"source_ids"`
 }
 
 // UnmarshalJSON is a custom JSON unmarshaller for metadata
@@ -129,11 +129,11 @@ func (m *Metadata) UnmarshalJSON(j []byte) error {
 	}
 
 	if derivative, ok := rawStrings["derivative"]; ok {
-		if s, ok := derivative.(bool); !ok {
+		if b, ok := derivative.(bool); !ok {
 			msg := fmt.Sprintf("derivative is not a boolean: %+v", rawStrings["derivative"])
 			return errors.New(msg)
 		} else {
-			m.Derivative = s
+			m.Derivative = b
 		}
 	}
 
@@ -248,7 +248,7 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 		ModifiedAt          string   `json:"modified_at"`
 		ModifiedBy          string   `json:"modified_by"`
 		ProctorResponseURL  string   `json:"proctor_response_url"`
-		SourceIDs           []string `json:"source_id"`
+		SourceIDs           []string `json:"source_ids"`
 	}{
 		ID:                  m.ID,
 		Name:                m.Name,
@@ -258,6 +258,7 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 		DataClassifications: m.DataClassifications,
 		DataFormat:          m.DataFormat,
 		DataStorage:         m.DataStorage,
+		Derivative:          m.Derivative,
 		DuaURL:              duaURL,
 		ModifiedAt:          modifiedAt,
 		ModifiedBy:          m.ModifiedBy,

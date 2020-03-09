@@ -14,10 +14,10 @@ type Service struct {
 
 // MetadataRepository is an interface for metadata repository
 type MetadataRepository interface {
-	Create(id string, data []byte) error
-	Get(id string) ([]byte, error)
-	Update(id string, data []byte) error
-	Delete(id string) error
+	Create(ctx context.Context, account, id string, metadata *Metadata) (*Metadata, error)
+	Get(ctx context.Context, account, id string) (*Metadata, error)
+	Update(ctx context.Context, account, id string, metadata *Metadata) (*Metadata, error)
+	Delete(ctx context.Context, account, id string) error
 }
 
 // DataRepository is an interface for data repository

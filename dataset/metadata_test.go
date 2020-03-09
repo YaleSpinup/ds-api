@@ -173,7 +173,7 @@ func TestMetadataMarshalJSON(t *testing.T) {
 	tests := []test{
 		test{
 			Metadata{},
-			[]byte(`{"id":"","name":"","description":"","created_at":"","created_by":"","data_classifications":null,"data_format":"","data_storage":"","derivative":false,"dua_url":"","modified_at":"","modified_by":"","proctor_response_url":"","source_id":null}`),
+			[]byte(`{"id":"","name":"","description":"","created_at":"","created_by":"","data_classifications":null,"data_format":"","data_storage":"","derivative":false,"dua_url":"","modified_at":"","modified_by":"","proctor_response_url":"","source_ids":null}`),
 			nil,
 		},
 		test{
@@ -197,7 +197,7 @@ func TestMetadataMarshalJSON(t *testing.T) {
 					"c00925d6-2eef-4fb6-aef1-87152613222c",
 				},
 			},
-			[]byte(`{"id":"08d754ba-8540-4fdc-92f3-47950c1cdb1c","name":"alien-sightings-dataset","description":"Alien sightings","created_at":"2013-06-19T19:14:01Z","created_by":"zbrannigan","data_classifications":["extremelyclassified"],"data_format":"file","data_storage":"s3","derivative":false,"dua_url":"https://allmydata.s3.amazonaws.com/duas/alien_dua.pdf","modified_at":"2015-11-21T04:19:01Z","modified_by":"kkroker","proctor_response_url":"https://allmydata.s3.amazonaws.com/proctor/alien_study.json","source_id":["ea19d935-6ca3-4711-8e3e-24713cc3ac00","801e1c4f-58ff-4f14-af1f-0fd6a09cdaef","c00925d6-2eef-4fb6-aef1-87152613222c"]}`),
+			[]byte(`{"id":"08d754ba-8540-4fdc-92f3-47950c1cdb1c","name":"alien-sightings-dataset","description":"Alien sightings","created_at":"2013-06-19T19:14:01Z","created_by":"zbrannigan","data_classifications":["extremelyclassified"],"data_format":"file","data_storage":"s3","derivative":false,"dua_url":"https://allmydata.s3.amazonaws.com/duas/alien_dua.pdf","modified_at":"2015-11-21T04:19:01Z","modified_by":"kkroker","proctor_response_url":"https://allmydata.s3.amazonaws.com/proctor/alien_study.json","source_ids":["ea19d935-6ca3-4711-8e3e-24713cc3ac00","801e1c4f-58ff-4f14-af1f-0fd6a09cdaef","c00925d6-2eef-4fb6-aef1-87152613222c"]}`),
 			nil,
 		},
 	}
