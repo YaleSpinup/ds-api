@@ -220,6 +220,7 @@ func (s *S3Repository) Get(ctx context.Context, account, id string) (*dataset.Me
 	if err != nil {
 		return nil, ErrCode("failed to get metadata object from s3 "+key, err)
 	}
+	defer out.Body.Close()
 
 	metadata := &dataset.Metadata{}
 	err = json.NewDecoder(out.Body).Decode(metadata)
