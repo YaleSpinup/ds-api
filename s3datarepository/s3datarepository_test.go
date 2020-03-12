@@ -14,7 +14,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
@@ -32,20 +31,6 @@ func newMockS3Client(t *testing.T) s3iface.S3API {
 		t:         t,
 		err:       make(map[string]error),
 		headCount: 0,
-	}
-}
-
-// mockIAMClient is a fake IAM client
-type mockIAMClient struct {
-	iamiface.IAMAPI
-	t   *testing.T
-	err map[string]error
-}
-
-func newMockIAMClient(t *testing.T) iamiface.IAMAPI {
-	return &mockIAMClient{
-		t:   t,
-		err: make(map[string]error),
 	}
 }
 

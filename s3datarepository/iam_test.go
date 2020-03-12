@@ -13,7 +13,22 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 )
+
+// mockIAMClient is a fake IAM client
+type mockIAMClient struct {
+	iamiface.IAMAPI
+	t   *testing.T
+	err map[string]error
+}
+
+func newMockIAMClient(t *testing.T) iamiface.IAMAPI {
+	return &mockIAMClient{
+		t:   t,
+		err: make(map[string]error),
+	}
+}
 
 func (i *mockIAMClient) AddRoleToInstanceProfileWithContext(ctx context.Context, input *iam.AddRoleToInstanceProfileInput, opts ...request.Option) (*iam.AddRoleToInstanceProfileOutput, error) {
 	if err, ok := i.err["AddRoleToInstanceProfileWithContext"]; ok {
