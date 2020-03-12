@@ -7,12 +7,14 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/YaleSpinup/ds-api/apierror"
 	"github.com/YaleSpinup/ds-api/dataset"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
@@ -32,6 +34,22 @@ func newMockS3Client(t *testing.T) s3iface.S3API {
 		headCount: 0,
 	}
 }
+
+// mockIAMClient is a fake IAM client
+type mockIAMClient struct {
+	iamiface.IAMAPI
+	t   *testing.T
+	err map[string]error
+}
+
+func newMockIAMClient(t *testing.T) iamiface.IAMAPI {
+	return &mockIAMClient{
+		t:   t,
+		err: make(map[string]error),
+	}
+}
+
+var testTime = time.Now().UTC().Truncate(time.Second)
 
 func (m *mockS3Client) HeadBucketWithContext(ctx context.Context, input *s3.HeadBucketInput, opts ...request.Option) (*s3.HeadBucketOutput, error) {
 	if err, ok := m.err["HeadBucketWithContext"]; ok {
@@ -134,7 +152,8 @@ func TestNew(t *testing.T) {
 
 func TestBucketExists(t *testing.T) {
 	s := S3Repository{
-		S3: newMockS3Client(t),
+		S3:  newMockS3Client(t),
+		IAM: newMockIAMClient(t),
 	}
 
 	exists, err := s.bucketExists(context.TODO(), "testbucket-exists")
@@ -170,22 +189,30 @@ func TestProvision(t *testing.T) {
 		},
 	}
 
-	// test success, with tags
-	s := S3Repository{S3: newMockS3Client(t)}
+	// test success, with tags, no prefix
+	s := S3Repository{S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
+	expected := "68004EEC-6044-45C9-91E5-AF836DCD9234"
 
-	err := s.Provision(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234", testTags)
+	got, err := s.Provision(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234", testTags)
 	if err != nil {
 		t.Errorf("expected nil error, got: %s", err)
 	}
+	if got != expected {
+		t.Errorf("expected repository '%s', got: %s", expected, got)
+	}
 
-	// test success, without tags
-	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
+	// test success, without tags, with prefix
+	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
+	expected = "dataset-68004EEC-6044-45C9-91E5-AF836DCD9234"
 
-	err = s.Provision(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234", []*dataset.Tag{})
+	got, err = s.Provision(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234", []*dataset.Tag{})
 	if err != nil {
 		t.Errorf("expected nil error, got: %s", err)
+	}
+	if got != expected {
+		t.Errorf("expected repository '%s', got: %s", expected, got)
 	}
 
 	// test empty id
@@ -194,7 +221,7 @@ func TestProvision(t *testing.T) {
 	expectedCode = apierror.ErrBadRequest
 	expectedMessage = "invalid input"
 
-	err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -216,7 +243,7 @@ func TestProvision(t *testing.T) {
 	expectedCode = apierror.ErrConflict
 	expectedMessage = "s3 bucket already exists"
 
-	err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -240,7 +267,7 @@ func TestProvision(t *testing.T) {
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	s.S3.(*mockS3Client).err["CreateBucketWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
-	err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -262,7 +289,7 @@ func TestProvision(t *testing.T) {
 	expectedCode = apierror.ErrInternalError
 	expectedMessage = fmt.Sprintf("failed to create bucket dataset-%s, timeout waiting for create: s3 bucket (dataset-%s) doesn't exist", id, id)
 
-	err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -282,11 +309,11 @@ func TestProvision(t *testing.T) {
 	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
 	id = "68004EEC-6044-45C9-91E5-AF836DCD9234"
 	expectedCode = apierror.ErrServiceUnavailable
-	expectedMessage = fmt.Sprintf("failed block public access for s3 bucket dataset-%s", id)
+	expectedMessage = fmt.Sprintf("failed to block public access for s3 bucket dataset-%s", id)
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	s.S3.(*mockS3Client).err["PutPublicAccessBlockWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
-	err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -310,7 +337,7 @@ func TestProvision(t *testing.T) {
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	s.S3.(*mockS3Client).err["PutBucketEncryptionWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
-	err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -334,7 +361,7 @@ func TestProvision(t *testing.T) {
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	s.S3.(*mockS3Client).err["PutBucketTaggingWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
-	err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {

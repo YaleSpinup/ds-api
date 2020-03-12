@@ -23,6 +23,8 @@ POST /v1/ds/{account}/datasets
 ```json
 {
     "name": "awesome-dataset-of-stuff",
+    "type": "s3",
+    "derivative": true,
     "tags": [
         { "key": "Application", "value": "ButWhyyyyy" },
         { "key": "COA", "value": "Take.My.Money" },
@@ -34,7 +36,6 @@ POST /v1/ds/{account}/datasets
         "created_by": "drzoidberg",
         "data_classifications": ["hipaa","pii"],
         "data_format": "file",
-        "derivative": true,
         "dua_url": "https://allmydata.s3.amazonaws.com/duas/huge_awesome_dua.pdf",
         "modified_at": "2019-03-28T07:36:01.123Z",
         "modified_by": "pfry",
@@ -48,9 +49,38 @@ POST /v1/ds/{account}/datasets
 
 ```json
 {
-    "ID": "c380ba10-1dbe-4377-a9eb-5e14d8212962",
-    "Bucket": "/awesome-dataset-bucketname",
-    "Resources": [],
+    "id": "d37b375b-d136-4b17-8666-5036dc554a66",
+    "repository": "dataset-localdev-d37b375b-d136-4b17-8666-5036dc554a66",
+    "metadata": {
+        "id": "d37b375b-d136-4b17-8666-5036dc554a66",
+        "name": "awesome-dataset-of-stuff",
+        "description": "The hugest dataset of awesome stuff",
+        "created_at": "2020-03-11T18:41:32Z",
+        "created_by": "drzoidberg",
+        "data_classifications": [
+            "hipaa",
+            "pii"
+        ],
+        "data_format": "file",
+        "data_storage": "s3",
+        "derivative": true,
+        "dua_url": "https://allmydata.s3.amazonaws.com/duas/huge_awesome_dua.pdf",
+        "modified_at": "2020-03-11T18:41:32Z",
+        "modified_by": "pfry",
+        "proctor_response_url": "https://allmydata.s3.amazonaws.com/proctor/huge_awesome_study.json",
+        "source_ids": [
+            "e15d2282-9c68-46b5-801c-2b5a62484624",
+            "a7c082ee-f711-48fa-8a57-25c95b3a6ddd"
+        ]
+    },
+    "access": {
+        "instance_profile_arn": "arn:aws:iam::516855177326:instance-profile/roleDataset_d37b375b-d136-4b17-8666-5036dc554a66",
+        "instance_profile_name": "roleDataset_d37b375b-d136-4b17-8666-5036dc554a66",
+        "policy_arn": "arn:aws:iam::516855177326:policy/dataset-localdev-d37b375b-d136-4b17-8666-5036dc554a66-DerivativePlc",
+        "policy_name": "dataset-localdev-d37b375b-d136-4b17-8666-5036dc554a66-DerivativePlc",
+        "role_arn": "arn:aws:iam::516855177326:role/roleDataset_d37b375b-d136-4b17-8666-5036dc554a66",
+        "role_name": "roleDataset_d37b375b-d136-4b17-8666-5036dc554a66"
+    }
 }
 ```
 
@@ -69,9 +99,10 @@ POST /v1/ds/{account}/datasets
 
 Authentication is accomplished using a pre-shared key via the `X-Auth-Token` header.
 
-## Author
+## Authors
 
 E Camden Fisher <camden.fisher@yale.edu>
+Tenyo Grozev <tenyo.grozev@yale.edu>
 
 ## License
 

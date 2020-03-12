@@ -13,6 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	log "github.com/sirupsen/logrus"
@@ -24,6 +26,7 @@ type S3RepositoryOption func(*S3Repository)
 // S3Repository is an implementation of a data respository in S3
 type S3Repository struct {
 	NamePrefix string
+	IAM        iamiface.IAMAPI
 	S3         s3iface.S3API
 	config     *aws.Config
 }
@@ -79,6 +82,7 @@ func New(opts ...S3RepositoryOption) (*S3Repository, error) {
 
 	sess := session.Must(session.NewSession(s.config))
 
+	s.IAM = iam.New(sess)
 	s.S3 = s3.New(sess)
 	return &s, nil
 }
@@ -147,9 +151,9 @@ func (s *S3Repository) bucketExists(ctx context.Context, bucketName string) (boo
 // 3. Block all public access to the bucket
 // 4. Enable AWS managed serverside encryption (AES-256) for the bucket
 // 5. Add tags to the bucket
-func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*dataset.Tag) error {
+func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*dataset.Tag) (string, error) {
 	if id == "" {
-		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+		return "", apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
 	name := id
@@ -163,9 +167,9 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 	// in us-east-1 (only) bucket creation will succeed if the bucket already exists in your
 	// account, but in all other regions the API will return s3.ErrCodeBucketAlreadyOwnedByYou 🤷‍♂️
 	if exists, err := s.bucketExists(ctx, name); exists {
-		return apierror.New(apierror.ErrConflict, "s3 bucket already exists", nil)
+		return "", apierror.New(apierror.ErrConflict, "s3 bucket already exists", nil)
 	} else if err != nil {
-		return apierror.New(apierror.ErrInternalError, "internal error", nil)
+		return "", apierror.New(apierror.ErrInternalError, "internal error", nil)
 	}
 
 	// prepare tags
@@ -192,7 +196,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 	if _, err = s.S3.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
 		Bucket: aws.String(name),
 	}); err != nil {
-		return ErrCode("failed to create s3 bucket "+name, err)
+		return "", ErrCode("failed to create s3 bucket "+name, err)
 	}
 
 	// append bucket delete to rollback tasks
@@ -226,7 +230,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 
 	if err != nil {
 		msg := fmt.Sprintf("failed to create bucket %s, timeout waiting for create: %s", name, err.Error())
-		return apierror.New(apierror.ErrInternalError, msg, err)
+		return "", apierror.New(apierror.ErrInternalError, msg, err)
 	}
 
 	// block public access
@@ -240,7 +244,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 			RestrictPublicBuckets: aws.Bool(true),
 		},
 	}); err != nil {
-		return ErrCode("failed block public access for s3 bucket "+name, err)
+		return "", ErrCode("failed to block public access for s3 bucket "+name, err)
 	}
 
 	// enable AWS managed serverside encryption for the bucket
@@ -257,7 +261,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 			},
 		},
 	}); err != nil {
-		return ErrCode("failed to enable encryption for s3 bucket "+name, err)
+		return "", ErrCode("failed to enable encryption for s3 bucket "+name, err)
 	}
 
 	// add tags
@@ -267,13 +271,11 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 			Bucket:  aws.String(name),
 			Tagging: &s3.Tagging{TagSet: tags},
 		}); err != nil {
-			return ErrCode("failed to tag s3 bucket "+name, err)
+			return "", ErrCode("failed to tag s3 bucket "+name, err)
 		}
 	}
 
-	// TODO: create IAM policy
-
-	return nil
+	return name, nil
 }
 
 // Deprovision satisfies the ability to deprovision a data repository
@@ -303,7 +305,7 @@ func (s *S3Repository) Delete(ctx context.Context, id string) error {
 		name = s.NamePrefix + "-" + name
 	}
 
-	log.Debugf("deleting s3datarepository: %s", name)
+	log.Infof("deleting s3datarepository: %s", name)
 
 	// delete the s3 bucket
 	_, err := s.S3.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{Bucket: aws.String(name)})

@@ -28,13 +28,12 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infof("creating data set in account '%s'", account)
-
 	input := struct {
-		Name     string            `json:"name"`
-		Type     string            `json:"type"`
-		Tags     []*dataset.Tag    `json:"tags"`
-		Metadata *dataset.Metadata `json:"metadata"`
+		Name       string            `json:"name"`
+		Type       string            `json:"type"`
+		Derivative bool              `json:"derivative"`
+		Tags       []*dataset.Tag    `json:"tags"`
+		Metadata   *dataset.Metadata `json:"metadata"`
 	}{}
 
 	err := json.NewDecoder(r.Body).Decode(&input)
@@ -43,6 +42,8 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
 		return
 	}
+
+	log.Infof("creating data set (derivative: %t) in account '%s'", input.Derivative, account)
 
 	if input.Name == "" {
 		handleError(w, apierror.New(apierror.ErrBadRequest, "dataset name is required", nil))
@@ -67,10 +68,11 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("generated random id %s for new data set", id)
 
-	// override metadata ID, Name and DataStorage
+	// override metadata ID, Name, DataStorage and Derivative
 	input.Metadata.ID = id
 	input.Metadata.Name = input.Name
 	input.Metadata.DataStorage = input.Type
+	input.Metadata.Derivative = input.Derivative
 
 	// set tags for ID, Name, Org
 	// TODO: tag value validation, including the Name
@@ -106,32 +108,64 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// create dataset storage location
+	var dataRepoName string
 	log.Infof("provisioning dataset repository for %s", id)
-	if err = dataRepo.Provision(r.Context(), id, input.Tags); err != nil {
+	dataRepoName, err = dataRepo.Provision(r.Context(), id, input.Tags)
+	if err != nil {
 		handleError(w, err)
 		return
 	}
 
 	// append dataset cleanup to rollback tasks
-	rbfunc := func() error {
+	rollBackTasks = append(rollBackTasks, func() error {
 		return func() error {
 			if err := dataRepo.Delete(r.Context(), id); err != nil {
 				return err
 			}
 			return nil
 		}()
-	}
-	rollBackTasks = append(rollBackTasks, rbfunc)
+	})
 
-	// create metadata in repository
-	log.Infof("adding dataset metadata for %s", id)
-	out, err := service.MetadataRepository.Create(r.Context(), account, id, input.Metadata)
+	// grant appropriate dataset access
+	var datasetAccess *dataset.Access
+	log.Infof("granting dataset access for %s (derivative: %t)", id, input.Derivative)
+	datasetAccess, err = dataRepo.GrantAccess(r.Context(), id, input.Derivative)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	j, err := json.Marshal(&out)
+	// append access cleanup to rollback tasks
+	rollBackTasks = append(rollBackTasks, func() error {
+		return func() error {
+			if err := dataRepo.RevokeAccess(r.Context(), id); err != nil {
+				return err
+			}
+			return nil
+		}()
+	})
+
+	// create metadata in repository
+	log.Infof("adding dataset metadata for %s", id)
+	metadataOutput, err := service.MetadataRepository.Create(r.Context(), account, id, input.Metadata)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	output := struct {
+		ID         string            `json:"id"`
+		Repository string            `json:"repository"`
+		Metadata   *dataset.Metadata `json:"metadata"`
+		Access     *dataset.Access   `json:"access"`
+	}{
+		id,
+		dataRepoName,
+		metadataOutput,
+		datasetAccess,
+	}
+
+	j, err := json.Marshal(&output)
 	if err != nil {
 		msg := fmt.Sprintf("cannot encode dataset output into json: %s", err)
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))

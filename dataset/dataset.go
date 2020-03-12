@@ -22,10 +22,15 @@ type MetadataRepository interface {
 
 // DataRepository is an interface for data repository
 type DataRepository interface {
-	Provision(ctx context.Context, id string, tags []*Tag) error
+	Provision(ctx context.Context, id string, tags []*Tag) (string, error)
 	Deprovision(ctx context.Context, id string) error
 	Delete(ctx context.Context, id string) error
+	GrantAccess(ctx context.Context, id string, derivative bool) (*Access, error)
+	RevokeAccess(ctx context.Context, id string) error
 }
+
+// Access contains necessary information in order to access a dataset
+type Access map[string]string
 
 // ServiceOption is a function to set service options
 type ServiceOption func(*Service)
