@@ -102,6 +102,8 @@ func TestNewDefaultRepository(t *testing.T) {
 		"endpoint": "https://under.mydesk.amazonaws.com",
 	}
 
+	expectedPathPrefix := "/dataset/"
+
 	s, err := NewDefaultRepository(testConfig)
 	if err != nil {
 		t.Errorf("expected nil error, got: %s", err)
@@ -121,6 +123,10 @@ func TestNewDefaultRepository(t *testing.T) {
 
 	if s.config.Endpoint == nil {
 		t.Error("expected config Endpoint to be set, got nil")
+	}
+
+	if s.PathPrefix != expectedPathPrefix {
+		t.Errorf("expected PathPrefix to be '%s', got '%s'", expectedPathPrefix, s.PathPrefix)
 	}
 }
 
