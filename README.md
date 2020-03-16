@@ -12,6 +12,7 @@ GET /v1/ds/version
 GET /v1/ds/metrics
 
 POST /v1/ds/{account}/datasets
+GET /v1/ds/{account}/datasets/{id}
 ```
 
 ## Usage
@@ -94,6 +95,74 @@ POST /v1/ds/{account}/datasets
 | **429 Too Many Requests**     | service or rate limit exceeded       |
 | **500 Internal Server Error** | a server error occurred              |
 | **503 Service Unavailable**   | an AWS service is unavailable        |
+
+### Get information about a dataset
+
+GET /v1/ds/{account}/datasets/{id}
+
+```json
+{
+    "id": "bb4f6316-53e2-45ae-97c7-fa7fd17f78a8",
+    "metadata": {
+        "id": "bb4f6316-53e2-45ae-97c7-fa7fd17f78a8",
+        "name": "awesome-dataset-of-stuff",
+        "description": "The hugest dataset of awesome stuff",
+        "created_at": "2020-03-16T15:38:14Z",
+        "created_by": "drzoidberg",
+        "data_classifications": [
+            "hipaa",
+            "pii"
+        ],
+        "data_format": "file",
+        "data_storage": "s3",
+        "derivative": true,
+        "dua_url": "https://allmydata.s3.amazonaws.com/duas/huge_awesome_dua.pdf",
+        "modified_at": "2020-03-16T15:38:14Z",
+        "modified_by": "pfry",
+        "proctor_response_url": "https://allmydata.s3.amazonaws.com/proctor/huge_awesome_study.json",
+        "source_ids": [
+            "d37b375b-d136-4b17-8666-5036dc554a66",
+        ]
+    },
+    "repository": {
+        "name": "dataset-localdev-bb4f6316-53e2-45ae-97c7-fa7fd17f78a8",
+        "tags": [
+            {
+                "key": "CreatedBy",
+                "value": "SomeGuy"
+            },
+            {
+                "key": "spinup:org",
+                "value": "localdev"
+            },
+            {
+                "key": "ID",
+                "value": "bb4f6316-53e2-45ae-97c7-fa7fd17f78a8"
+            },
+            {
+                "key": "COA",
+                "value": "Take.My.Money"
+            },
+            {
+                "key": "Application",
+                "value": "ButWhyyyyy"
+            },
+            {
+                "key": "Name",
+                "value": "awesome-dataset-of-stuff"
+            }
+        ]
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | okay                                 |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | dataset not found                    |
+| **500 Internal Server Error** | a server error occurred              |
+
 
 ## Authentication
 
