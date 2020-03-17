@@ -168,6 +168,51 @@ GET /v1/ds/{account}/datasets/{id}
 
 Authentication is accomplished using a pre-shared key via the `X-Auth-Token` header.
 
+## API Configuration
+
+API configuration is via `config/config.json`, an example config file is provided.
+
+You can specify a single `metadataRepository` where metadata about all the different data sets will be stored. Currently, the only supported type is `s3`, so you need to provide an S3 bucket and credentials with full access to that bucket. For example, if you created a bucket called `spinup-example-metadata-repository`, then the IAM policy would be:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": "arn:aws:s3:::spinup-example-metadata-repository/*"
+        }
+    ]
+}
+```
+
+You can then define a list of `accounts` for the actual dataset repositories - that's where the data sets will be stored. Currently, the only supported type is `s3`, so you need to provide credentials in each account with the appropriate S3 and IAM access. This is a good starting IAM policy if you don't modify the default name and path prefixes:
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "iam:*",
+            "Resource": [
+                "arn:aws:iam::*:role/spinup/dataset/*",
+                "arn:aws:iam::*:instance-profile/spinup/dataset/*",
+                "arn:aws:iam::*:group/spinup/dataset/*",
+                "arn:aws:iam::*:user/spinup/dataset/*",
+                "arn:aws:iam::*:policy/spinup/dataset/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3::*:dataset-*"
+            ]
+        }
+    ]
+}
+```
+
 ## Authors
 
 E Camden Fisher <camden.fisher@yale.edu>
