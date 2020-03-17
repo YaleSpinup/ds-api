@@ -67,8 +67,10 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 		}
 	}()
 
+	// create policy
 	policyOutput, err := s.IAM.CreatePolicyWithContext(ctx, &iam.CreatePolicyInput{
 		Description:    aws.String(fmt.Sprintf("Access policy for bucket %s", name)),
+		Path:           aws.String(s.IAMPathPrefix),
 		PolicyDocument: aws.String(string(policyDoc)),
 		PolicyName:     aws.String(policyName),
 	})
@@ -77,15 +79,14 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 	}
 
 	// append policy delete to rollback tasks
-	rbfunc := func() error {
+	rollBackTasks = append(rollBackTasks, func() error {
 		return func() error {
 			if _, err := s.IAM.DeletePolicyWithContext(ctx, &iam.DeletePolicyInput{PolicyArn: policyOutput.Policy.Arn}); err != nil {
 				return err
 			}
 			return nil
 		}()
-	}
-	rollBackTasks = append(rollBackTasks, rbfunc)
+	})
 
 	// create role
 	roleName := fmt.Sprintf("roleDataset_%s", id)
@@ -99,7 +100,7 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 	roleOutput, err := s.IAM.CreateRoleWithContext(ctx, &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: aws.String(string(roleDoc)),
 		Description:              aws.String(fmt.Sprintf("Role for accessing bucket %s", name)),
-		Path:                     aws.String("/"),
+		Path:                     aws.String(s.IAMPathPrefix),
 		RoleName:                 aws.String(roleName),
 	})
 	if err != nil {
@@ -107,15 +108,14 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 	}
 
 	// append role delete to rollback tasks
-	rbfunc = func() error {
+	rollBackTasks = append(rollBackTasks, func() error {
 		return func() error {
 			if _, err := s.IAM.DeleteRoleWithContext(ctx, &iam.DeleteRoleInput{RoleName: roleOutput.Role.RoleName}); err != nil {
 				return err
 			}
 			return nil
 		}()
-	}
-	rollBackTasks = append(rollBackTasks, rbfunc)
+	})
 
 	// attach access policy to the role
 	_, err = s.IAM.AttachRolePolicyWithContext(ctx, &iam.AttachRolePolicyInput{
@@ -126,27 +126,39 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 		return nil, ErrCode("failed to attach policy to role "+roleName, err)
 	}
 
+	// append policy detach from role to rollback tasks
+	rollBackTasks = append(rollBackTasks, func() error {
+		return func() error {
+			if _, err := s.IAM.DetachRolePolicyWithContext(ctx, &iam.DetachRolePolicyInput{
+				PolicyArn: policyOutput.Policy.Arn,
+				RoleName:  aws.String(roleName),
+			}); err != nil {
+				return err
+			}
+			return nil
+		}()
+	})
+
 	log.Debugf("created role %s", roleName)
 
 	// create instance profile
 	instanceProfileOutput, err := s.IAM.CreateInstanceProfileWithContext(ctx, &iam.CreateInstanceProfileInput{
 		InstanceProfileName: aws.String(roleName),
-		Path:                aws.String("/"),
+		Path:                aws.String(s.IAMPathPrefix),
 	})
 	if err != nil {
 		return nil, ErrCode("failed to create instance profile "+roleName, err)
 	}
 
 	// append instance profile delete to rollback tasks
-	rbfunc = func() error {
+	rollBackTasks = append(rollBackTasks, func() error {
 		return func() error {
 			if _, err := s.IAM.DeleteInstanceProfileWithContext(ctx, &iam.DeleteInstanceProfileInput{InstanceProfileName: aws.String(roleName)}); err != nil {
 				return err
 			}
 			return nil
 		}()
-	}
-	rollBackTasks = append(rollBackTasks, rbfunc)
+	})
 
 	// add role to instance profile
 	_, err = s.IAM.AddRoleToInstanceProfileWithContext(ctx, &iam.AddRoleToInstanceProfileInput{
@@ -156,6 +168,19 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 	if err != nil {
 		return nil, ErrCode("failed to add role to instance profile "+roleName, err)
 	}
+
+	// append role removal from instance profile to rollback tasks
+	rollBackTasks = append(rollBackTasks, func() error {
+		return func() error {
+			if _, err := s.IAM.RemoveRoleFromInstanceProfileWithContext(ctx, &iam.RemoveRoleFromInstanceProfileInput{
+				InstanceProfileName: aws.String(roleName),
+				RoleName:            aws.String(roleName),
+			}); err != nil {
+				return err
+			}
+			return nil
+		}()
+	})
 
 	log.Debugf("created instance profile %s", roleName)
 
@@ -188,7 +213,9 @@ func (s *S3Repository) RevokeAccess(ctx context.Context, id string) error {
 	log.Infof("revoking access to s3datarepository: %s", name)
 
 	// get list of policies attached to the IAM role for this repository
-	policies, err := s.IAM.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: aws.String(roleName)})
+	policies, err := s.IAM.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{
+		PathPrefix: aws.String(s.IAMPathPrefix),
+		RoleName:   aws.String(roleName)})
 	if err != nil {
 		outputError = true
 		log.Warnf("failed to list policies attached to role %s: %s", roleName, err)
@@ -276,6 +303,7 @@ func (s *S3Repository) GrantTemporaryAccess(ctx context.Context, id string) (*da
 
 	policyOutput, err := s.IAM.CreatePolicyWithContext(ctx, &iam.CreatePolicyInput{
 		Description:    aws.String(fmt.Sprintf("Temporary policy for bucket %s", name)),
+		Path:           aws.String(s.IAMPathPrefix),
 		PolicyDocument: aws.String(string(policyDoc)),
 		PolicyName:     aws.String(policyName),
 	})
