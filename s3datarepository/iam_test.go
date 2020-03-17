@@ -145,7 +145,7 @@ func TestGrantAccess(t *testing.T) {
 	var expectedCode, expectedMessage, id string
 
 	// test success, derivative false
-	s := S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s := S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
 	expected := &dataset.Access{
 		"policy_arn":            fmt.Sprintf("arn:aws:iam::12345678910:policy/test/dataset-%s-OriginalPlc", id),
@@ -165,7 +165,7 @@ func TestGrantAccess(t *testing.T) {
 	}
 
 	// test success, derivative true
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
 	expected = &dataset.Access{
 		"policy_arn":            fmt.Sprintf("arn:aws:iam::12345678910:policy/test/dataset-%s-DerivativePlc", id),
@@ -185,7 +185,7 @@ func TestGrantAccess(t *testing.T) {
 	}
 
 	// test empty id
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	_, err = s.GrantAccess(context.TODO(), "", false)
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
@@ -196,7 +196,7 @@ func TestGrantAccess(t *testing.T) {
 	}
 
 	// test create policy failure
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
 	expectedCode = apierror.ErrServiceUnavailable
 	expectedMessage = fmt.Sprintf("failed to create IAM policy")
@@ -219,7 +219,7 @@ func TestGrantAccess(t *testing.T) {
 	}
 
 	// test create role failure
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
 	expectedCode = apierror.ErrServiceUnavailable
 	expectedMessage = fmt.Sprintf("failed to create IAM role roleDataset_%s", id)
@@ -242,7 +242,7 @@ func TestGrantAccess(t *testing.T) {
 	}
 
 	// test attach role policy failure
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
 	expectedCode = apierror.ErrServiceUnavailable
 	expectedMessage = fmt.Sprintf("failed to attach policy to role roleDataset_%s", id)
@@ -265,7 +265,7 @@ func TestGrantAccess(t *testing.T) {
 	}
 
 	// test create instance profile failure
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
 	expectedCode = apierror.ErrServiceUnavailable
 	expectedMessage = fmt.Sprintf("failed to create instance profile roleDataset_%s", id)
@@ -288,7 +288,7 @@ func TestGrantAccess(t *testing.T) {
 	}
 
 	// test add role to instance profile failure
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
 	expectedCode = apierror.ErrServiceUnavailable
 	expectedMessage = fmt.Sprintf("failed to add role to instance profile roleDataset_%s", id)
@@ -316,7 +316,7 @@ func TestRevokeAccess(t *testing.T) {
 	var expectedCode, expectedMessage, id string
 
 	// test success
-	s := S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s := S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
 	err := s.RevokeAccess(context.TODO(), id)
 	if err != nil {
@@ -324,7 +324,7 @@ func TestRevokeAccess(t *testing.T) {
 	}
 
 	// test empty id
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	err = s.RevokeAccess(context.TODO(), "")
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
@@ -338,7 +338,7 @@ func TestRevokeAccess(t *testing.T) {
 	expectedMessage = fmt.Sprintf("one or more errors trying to revoke access for data repository dataset-%s", id)
 
 	// test list role policies failure
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	s.IAM.(*mockIAMClient).err["ListAttachedRolePoliciesWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	err = s.RevokeAccess(context.TODO(), id)
@@ -358,7 +358,7 @@ func TestRevokeAccess(t *testing.T) {
 	}
 
 	// test remove role from instance profile failure
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	s.IAM.(*mockIAMClient).err["RemoveRoleFromInstanceProfileWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	err = s.RevokeAccess(context.TODO(), id)
@@ -378,7 +378,7 @@ func TestRevokeAccess(t *testing.T) {
 	}
 
 	// test delete instance profile failure
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	s.IAM.(*mockIAMClient).err["DeleteInstanceProfileWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	err = s.RevokeAccess(context.TODO(), id)
@@ -398,7 +398,7 @@ func TestRevokeAccess(t *testing.T) {
 	}
 
 	// test delete role failure
-	s = S3Repository{NamePrefix: "dataset", PathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	s.IAM.(*mockIAMClient).err["DeleteRoleWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	err = s.RevokeAccess(context.TODO(), id)

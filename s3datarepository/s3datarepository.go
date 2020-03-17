@@ -25,11 +25,11 @@ type S3RepositoryOption func(*S3Repository)
 
 // S3Repository is an implementation of a data respository in S3
 type S3Repository struct {
-	NamePrefix string
-	PathPrefix string
-	IAM        iamiface.IAMAPI
-	S3         s3iface.S3API
-	config     *aws.Config
+	NamePrefix    string
+	IAMPathPrefix string
+	IAM           iamiface.IAMAPI
+	S3            s3iface.S3API
+	config        *aws.Config
 }
 
 // NewDefaultRepository creates a new repository from the default config data
@@ -67,8 +67,8 @@ func NewDefaultRepository(config map[string]interface{}) (*S3Repository, error) 
 		opts = append(opts, WithEndpoint(endpoint))
 	}
 
-	// set default PathPrefix
-	opts = append(opts, WithPathPrefix("/dataset/"))
+	// set default IAMPathPrefix
+	opts = append(opts, WithIAMPathPrefix("/spinup/dataset/"))
 
 	return New(opts...)
 }
@@ -115,11 +115,11 @@ func WithEndpoint(endpoint string) S3RepositoryOption {
 	}
 }
 
-// WithPathPrefix sets the PathPrefix for the S3Repository
-// This is used as the IAM Path prefix for IAM resources
-func WithPathPrefix(prefix string) S3RepositoryOption {
+// WithIAMPathPrefix sets the IAMPathPrefix for the S3Repository
+// This is used as the Path prefix for IAM resources
+func WithIAMPathPrefix(prefix string) S3RepositoryOption {
 	return func(s *S3Repository) {
-		s.PathPrefix = prefix
+		s.IAMPathPrefix = prefix
 	}
 }
 

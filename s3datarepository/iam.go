@@ -70,7 +70,7 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 	// create policy
 	policyOutput, err := s.IAM.CreatePolicyWithContext(ctx, &iam.CreatePolicyInput{
 		Description:    aws.String(fmt.Sprintf("Access policy for bucket %s", name)),
-		Path:           aws.String(s.PathPrefix),
+		Path:           aws.String(s.IAMPathPrefix),
 		PolicyDocument: aws.String(string(policyDoc)),
 		PolicyName:     aws.String(policyName),
 	})
@@ -100,7 +100,7 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 	roleOutput, err := s.IAM.CreateRoleWithContext(ctx, &iam.CreateRoleInput{
 		AssumeRolePolicyDocument: aws.String(string(roleDoc)),
 		Description:              aws.String(fmt.Sprintf("Role for accessing bucket %s", name)),
-		Path:                     aws.String(s.PathPrefix),
+		Path:                     aws.String(s.IAMPathPrefix),
 		RoleName:                 aws.String(roleName),
 	})
 	if err != nil {
@@ -144,7 +144,7 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 	// create instance profile
 	instanceProfileOutput, err := s.IAM.CreateInstanceProfileWithContext(ctx, &iam.CreateInstanceProfileInput{
 		InstanceProfileName: aws.String(roleName),
-		Path:                aws.String(s.PathPrefix),
+		Path:                aws.String(s.IAMPathPrefix),
 	})
 	if err != nil {
 		return nil, ErrCode("failed to create instance profile "+roleName, err)
@@ -214,7 +214,7 @@ func (s *S3Repository) RevokeAccess(ctx context.Context, id string) error {
 
 	// get list of policies attached to the IAM role for this repository
 	policies, err := s.IAM.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{
-		PathPrefix: aws.String(s.PathPrefix),
+		PathPrefix: aws.String(s.IAMPathPrefix),
 		RoleName:   aws.String(roleName)})
 	if err != nil {
 		outputError = true
@@ -303,7 +303,7 @@ func (s *S3Repository) GrantTemporaryAccess(ctx context.Context, id string) (*da
 
 	policyOutput, err := s.IAM.CreatePolicyWithContext(ctx, &iam.CreatePolicyInput{
 		Description:    aws.String(fmt.Sprintf("Temporary policy for bucket %s", name)),
-		Path:           aws.String(s.PathPrefix),
+		Path:           aws.String(s.IAMPathPrefix),
 		PolicyDocument: aws.String(string(policyDoc)),
 		PolicyName:     aws.String(policyName),
 	})
