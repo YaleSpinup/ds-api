@@ -157,6 +157,51 @@ func (s *S3Repository) bucketExists(ctx context.Context, bucketName string) (boo
 	return true, nil
 }
 
+// Describe returns information about the data repository
+func (s *S3Repository) Describe(ctx context.Context, id string) (*dataset.Repository, error) {
+	if id == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
+
+	log.Debugf("describing s3datarepository: %s", name)
+
+	// check if bucket exists
+	exists, err := s.bucketExists(ctx, name)
+	if !exists {
+		return nil, apierror.New(apierror.ErrNotFound, "s3 bucket not found: "+name, nil)
+	} else if err != nil {
+		return nil, apierror.New(apierror.ErrInternalError, "internal error", nil)
+	}
+
+	// get tags
+	log.Debugf("getting tags for bucket %s", name)
+	datasetTags, err := s.S3.GetBucketTaggingWithContext(ctx, &s3.GetBucketTaggingInput{Bucket: aws.String(name)})
+	if err != nil {
+		return nil, ErrCode("failed to get tags for s3 bucket "+name, err)
+	}
+
+	// prepare tags
+	tags := make([]*dataset.Tag, len(datasetTags.TagSet))
+	for i, tag := range datasetTags.TagSet {
+		tags[i] = &dataset.Tag{
+			Key:   tag.Key,
+			Value: tag.Value,
+		}
+	}
+
+	output := &dataset.Repository{
+		Name: name,
+		Tags: tags,
+	}
+
+	return output, nil
+}
+
 // Provision creates and configures a data repository in S3, and creates a default IAM policy
 // 1. Check if the requested bucket already exists in S3
 // 2. Create the bucket and wait for it to be successfully created

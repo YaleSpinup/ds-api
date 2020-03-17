@@ -189,17 +189,70 @@ func (s *server) DatasetListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte{})
 }
 
+// DatasetShowHandler returns information about a a dataset
 func (s *server) DatasetShowHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
-	dataset := vars["id"]
+	id := vars["id"]
 
-	log.Debugf("showing data set %s for account %s", dataset, account)
+	service, ok := s.datasetServices[account]
+	if !ok {
+		log.Errorf("account not found: %s", account)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	log.Debugf("showing data set %s for account %s", id, account)
+
+	// get metadata from repository
+	metadataOutput, err := service.MetadataRepository.Get(r.Context(), account, id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// TODO: How to handle disabled/archived datasets?
+
+	dataRepo, ok := service.DataRepository[metadataOutput.DataStorage]
+	if !ok {
+		msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadataOutput.DataStorage)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		return
+	}
+
+	dataRepoOutput, err := dataRepo.Describe(r.Context(), id)
+	if err != nil {
+		msg := fmt.Sprintf("failed to describe data repository for dataset %s", id)
+		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
+		return
+	}
+
+	// TODO: We probably want to return access information here, although we need to clarify what exactly -
+	// maybe just the role that has access to the data repository
+	// Also, the Access struct should probably be part of the Repository
+	output := struct {
+		ID         string              `json:"id"`
+		Metadata   *dataset.Metadata   `json:"metadata"`
+		Repository *dataset.Repository `json:"repository"`
+		// Access     *dataset.Access   `json:"access"`
+	}{
+		id,
+		metadataOutput,
+		dataRepoOutput,
+		// datasetAccess,
+	}
+
+	j, err := json.Marshal(&output)
+	if err != nil {
+		msg := fmt.Sprintf("cannot encode dataset output into json: %s", err)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte{})
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
 }
 
 func (s *server) DatasetUpdateHandler(w http.ResponseWriter, r *http.Request) {
