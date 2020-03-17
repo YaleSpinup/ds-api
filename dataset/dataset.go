@@ -26,7 +26,7 @@ type DataRepository interface {
 	Deprovision(ctx context.Context, id string) error
 	Delete(ctx context.Context, id string) error
 	Describe(ctx context.Context, id string) (*Repository, error)
-	GrantAccess(ctx context.Context, id string, derivative bool) (*Access, error)
+	GrantAccess(ctx context.Context, id string, derivative bool) (Access, error)
 	RevokeAccess(ctx context.Context, id string) error
 }
 

@@ -29,7 +29,7 @@ type PolicyDoc struct {
 
 // GrantAccess sets up the appropriate access to the data repository, depending if it's a derivative or not,
 // and returns a list of Policy/Role names
-func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bool) (*dataset.Access, error) {
+func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bool) (dataset.Access, error) {
 	if id == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
@@ -184,7 +184,7 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id string, derivative bo
 
 	log.Debugf("created instance profile %s", roleName)
 
-	output := &dataset.Access{
+	output := dataset.Access{
 		"policy_arn":            aws.StringValue(policyOutput.Policy.Arn),
 		"policy_name":           aws.StringValue(policyOutput.Policy.PolicyName),
 		"role_arn":              aws.StringValue(roleOutput.Role.Arn),

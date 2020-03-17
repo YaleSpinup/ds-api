@@ -147,7 +147,7 @@ func TestGrantAccess(t *testing.T) {
 	// test success, derivative false
 	s := S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
-	expected := &dataset.Access{
+	expected := dataset.Access{
 		"policy_arn":            fmt.Sprintf("arn:aws:iam::12345678910:policy/test/dataset-%s-OriginalPlc", id),
 		"policy_name":           fmt.Sprintf("dataset-%s-OriginalPlc", id),
 		"role_arn":              fmt.Sprintf("arn:aws:iam::12345678910:role/test/roleDataset_%s", id),
@@ -167,7 +167,7 @@ func TestGrantAccess(t *testing.T) {
 	// test success, derivative true
 	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
 	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
-	expected = &dataset.Access{
+	expected = dataset.Access{
 		"policy_arn":            fmt.Sprintf("arn:aws:iam::12345678910:policy/test/dataset-%s-DerivativePlc", id),
 		"policy_name":           fmt.Sprintf("dataset-%s-DerivativePlc", id),
 		"role_arn":              fmt.Sprintf("arn:aws:iam::12345678910:role/test/roleDataset_%s", id),

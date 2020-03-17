@@ -127,7 +127,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	// grant appropriate dataset access
-	var datasetAccess *dataset.Access
+	var datasetAccess dataset.Access
 	log.Infof("granting dataset access for %s (derivative: %t)", id, input.Derivative)
 	datasetAccess, err = dataRepo.GrantAccess(r.Context(), id, input.Derivative)
 	if err != nil {
@@ -157,7 +157,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		ID         string            `json:"id"`
 		Repository string            `json:"repository"`
 		Metadata   *dataset.Metadata `json:"metadata"`
-		Access     *dataset.Access   `json:"access"`
+		Access     dataset.Access    `json:"access"`
 	}{
 		id,
 		dataRepoName,
