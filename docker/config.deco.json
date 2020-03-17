@@ -1,10 +1,31 @@
 { 
   "listenAddress": ":8080",
+  "metadataRepository": {
+    "type": "s3",
+    "config": {
+      "bucket": "{{ .metadata_bucket }}",
+      "prefix": "datasets",
+      "region": "us-east-1",
+      "akid": "{{ .metadata_akid }}",
+      "secret": "{{ .metadata_secret }}"
+    }
+  },
   "accounts": {
     "spinup": {
-      "region": "us-east-1",
-      "akid": "{{ .spinup_akid }}",
-      "secret": "{{ .spinup_secret }}",
+      "storageProviders": ["s3"],
+      "config": {
+        "region": "us-east-1",
+        "akid": "{{ .spinup_akid }}",
+        "secret": "{{ .spinup_secret }}"
+      }
+    },
+    "spinupsec": {
+      "storageProviders": ["s3"],
+      "config": {
+        "region": "us-east-1",
+        "akid": "{{ .spinupsec_akid }}",
+        "secret": "{{ .spinupsec_secret }}"
+      }
     }
   },
   "token": "{{ .api_token }}",
