@@ -193,17 +193,21 @@ func (m *Metadata) UnmarshalJSON(j []byte) error {
 	}
 
 	if sourceIds, ok := rawStrings["source_ids"]; ok {
-		if sids, ok := sourceIds.([]interface{}); !ok {
-			msg := fmt.Sprintf("source_ids at is not a []interface{}: %+v", rawStrings["source_ids"])
-			return errors.New(msg)
-		} else {
+		if sourceIds == nil {
 			m.SourceIDs = []string{}
-			for _, iface := range sids {
-				if sid, ok := iface.(string); !ok {
-					msg := fmt.Sprintf("source id value is not a string: %+v", iface)
-					return errors.New(msg)
-				} else {
-					m.SourceIDs = append(m.SourceIDs, sid)
+		} else {
+			if sids, ok := sourceIds.([]interface{}); !ok {
+				msg := fmt.Sprintf("source_ids at is not a []interface{}: %+v", rawStrings["source_ids"])
+				return errors.New(msg)
+			} else {
+				m.SourceIDs = []string{}
+				for _, iface := range sids {
+					if sid, ok := iface.(string); !ok {
+						msg := fmt.Sprintf("source id value is not a string: %+v", iface)
+						return errors.New(msg)
+					} else {
+						m.SourceIDs = append(m.SourceIDs, sid)
+					}
 				}
 			}
 		}

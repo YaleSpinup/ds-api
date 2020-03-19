@@ -272,11 +272,54 @@ func (s *server) DatasetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
-	dataset := vars["id"]
+	id := vars["id"]
 
-	log.Debugf("deleting data set %s for account %s", dataset, account)
+	service, ok := s.datasetServices[account]
+	if !ok {
+		log.Errorf("account not found: %s", account)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	log.Debugf("deleting data set %s for account %s", id, account)
+
+	// get metadata from repository
+	metadataOutput, err := service.MetadataRepository.Get(r.Context(), account, id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	dataRepo, ok := service.DataRepository[metadataOutput.DataStorage]
+	if !ok {
+		msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadataOutput.DataStorage)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		return
+	}
+
+	// revoke access to the data repository (cleans up associated IAM policies)
+	if err := dataRepo.RevokeAccess(r.Context(), id); err != nil {
+		msg := fmt.Sprintf("failed to revoke data repository access for dataset %s", id)
+		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
+		return
+	}
+
+	// delete metadata
+	// TODO: Maybe we just mark the dataset as deleted in the metadata
+	if err = service.MetadataRepository.Delete(r.Context(), account, id); err != nil {
+		msg := fmt.Sprintf("failed to delete metadata for dataset %s", id)
+		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
+		return
+	}
+
+	// delete data repository (needs to be empty)
+	// Currently, this will only delete an empty bucket, or move on otherwise
+	if err = dataRepo.Delete(r.Context(), id); err != nil {
+		msg := fmt.Sprintf("failed to delete data repository for dataset %s", id)
+		log.Warn(msg)
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
+	w.WriteHeader(http.StatusNoContent)
 	w.Write([]byte{})
 }

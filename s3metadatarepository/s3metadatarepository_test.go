@@ -74,6 +74,13 @@ func newMockS3Client(t *testing.T) s3iface.S3API {
 	}
 }
 
+func (m *mockS3Client) DeleteObjectWithContext(ctx aws.Context, input *s3.DeleteObjectInput, opts ...request.Option) (*s3.DeleteObjectOutput, error) {
+	if err, ok := m.err["DeleteObjectWithContext"]; ok {
+		return nil, err
+	}
+	return &s3.DeleteObjectOutput{}, nil
+}
+
 func (m *mockS3Client) GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
 	if err, ok := m.err["GetObjectWithContext"]; ok {
 		return nil, err
@@ -98,6 +105,7 @@ func (m *mockS3Client) PutObjectWithContext(ctx aws.Context, input *s3.PutObject
 	}
 	return &s3.PutObjectOutput{}, nil
 }
+
 func TestNewDefaultRepository(t *testing.T) {
 	testConfig := map[string]interface{}{
 		"region":   "us-east-1",
@@ -240,7 +248,7 @@ func TestCreate(t *testing.T) {
 	// test object create failure
 	id = "2D24607A-38DD-4E11-8A83-5F317ADA24F1"
 	expectedCode = apierror.ErrServiceUnavailable
-	expectedMessage = fmt.Sprintf("failed to put s3 metadata object %s/%s/%s", testPrefix, account, id)
+	expectedMessage = fmt.Sprintf("failed to put s3 metadata object: %s/%s/%s", testPrefix, account, id)
 	s.S3.(*mockS3Client).err["PutObjectWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	_, err = s.Create(context.TODO(), account, id, testMetadata)
@@ -267,6 +275,26 @@ func TestGet(t *testing.T) {
 	}
 
 	account := "burn"
+
+	// test empty account
+	_, err := s.Get(context.TODO(), "", "123456")
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrBadRequest {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test empty id
+	_, err = s.Get(context.TODO(), account, "")
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrBadRequest {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
 
 	for k, v := range testMetadata {
 		need := &dataset.Metadata{
@@ -299,9 +327,9 @@ func TestGet(t *testing.T) {
 	// test getting non-existing object
 	id := "are-you-there"
 	expectedCode := apierror.ErrNotFound
-	expectedMessage := fmt.Sprintf("failed to get metadata object from s3 %s/%s/%s", testPrefix, account, id)
+	expectedMessage := fmt.Sprintf("failed to get metadata object from s3: %s/%s/%s", testPrefix, account, id)
 
-	_, err := s.Get(context.TODO(), account, id)
+	_, err = s.Get(context.TODO(), account, id)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -323,5 +351,62 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	t.Log("TODO")
+	testBucket := "test-bucket"
+	testPrefix := "slash"
+
+	s := S3Repository{
+		S3:     newMockS3Client(t),
+		Bucket: testBucket,
+		Prefix: testPrefix,
+	}
+
+	account := "burn"
+	id := "FB3B3E9F-36EE-4920-ADE0-2D54B80FE73C"
+
+	// test empty account
+	err := s.Delete(context.TODO(), "", id)
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrBadRequest {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test empty id
+	err = s.Delete(context.TODO(), account, "")
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrBadRequest {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test success
+	err = s.Delete(context.TODO(), account, id)
+	if err != nil {
+		t.Errorf("expected nil error, got %s", err)
+	}
+
+	// test deleting non-existing object
+	expectedCode := apierror.ErrNotFound
+	expectedMessage := fmt.Sprintf("failed to delete s3 metadata object: %s/%s/%s", testPrefix, account, id)
+	s.S3.(*mockS3Client).err["DeleteObjectWithContext"] = awserr.New("NotFound", "object not found", nil)
+
+	err = s.Delete(context.TODO(), account, id)
+	if err == nil {
+		t.Error("expected error, got: nil")
+	} else {
+		if aerr, ok := err.(apierror.Error); ok {
+			if aerr.Code != expectedCode {
+				t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+			}
+			if aerr.Message != expectedMessage {
+				t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+			}
+		} else {
+			t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+		}
+	}
 }
