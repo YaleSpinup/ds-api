@@ -23,8 +23,8 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	service, ok := s.datasetServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusNotFound)
+		msg := fmt.Sprintf("account not found: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -198,8 +198,8 @@ func (s *server) DatasetShowHandler(w http.ResponseWriter, r *http.Request) {
 
 	service, ok := s.datasetServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusNotFound)
+		msg := fmt.Sprintf("account not found: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
@@ -276,8 +276,8 @@ func (s *server) DatasetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 
 	service, ok := s.datasetServices[account]
 	if !ok {
-		log.Errorf("account not found: %s", account)
-		w.WriteHeader(http.StatusNotFound)
+		msg := fmt.Sprintf("account not found: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
 
