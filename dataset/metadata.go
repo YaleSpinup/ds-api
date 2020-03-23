@@ -42,99 +42,99 @@ func (m *Metadata) UnmarshalJSON(j []byte) error {
 	log.Debug("unmarshaled metadata into rawstrings")
 
 	if id, ok := rawStrings["id"]; ok {
-		if s, ok := id.(string); !ok {
+		s, ok := id.(string)
+		if !ok {
 			msg := fmt.Sprintf("id is not a string: %+v", rawStrings["id"])
 			return errors.New(msg)
-		} else {
-			m.ID = s
 		}
+		m.ID = s
 	}
 
 	if name, ok := rawStrings["name"]; ok {
-		if s, ok := name.(string); !ok {
+		s, ok := name.(string)
+		if !ok {
 			msg := fmt.Sprintf("name is not a string: %+v", rawStrings["name"])
 			return errors.New(msg)
-		} else {
-			m.Name = s
 		}
+		m.Name = s
 	}
 
 	if desc, ok := rawStrings["description"]; ok {
-		if s, ok := desc.(string); !ok {
+		s, ok := desc.(string)
+		if !ok {
 			msg := fmt.Sprintf("description is not a string: %+v", rawStrings["description"])
 			return errors.New(msg)
-		} else {
-			m.Description = s
 		}
+		m.Description = s
 	}
 
 	if createdAt, ok := rawStrings["created_at"]; ok {
-		if ca, ok := createdAt.(string); !ok {
+		ca, ok := createdAt.(string)
+		if !ok {
 			msg := fmt.Sprintf("created_at is not a string: %+v", rawStrings["created_at"])
 			return errors.New(msg)
-		} else {
-			if ca != "" {
-				t, err := time.Parse(time.RFC3339, ca)
-				if err != nil {
-					msg := fmt.Sprintf("failed to parse created at as time: %+v", t)
-					return errors.New(msg)
-				}
-				m.CreatedAt = &t
+		}
+		if ca != "" {
+			t, err := time.Parse(time.RFC3339, ca)
+			if err != nil {
+				msg := fmt.Sprintf("failed to parse created at as time: %+v", t)
+				return errors.New(msg)
 			}
+			m.CreatedAt = &t
 		}
 	}
 
 	if createdBy, ok := rawStrings["created_by"]; ok {
-		if s, ok := createdBy.(string); !ok {
+		s, ok := createdBy.(string)
+		if !ok {
 			msg := fmt.Sprintf("created_by is not a string: %+v", rawStrings["created_by"])
 			return errors.New(msg)
-		} else {
-			m.CreatedBy = s
 		}
+		m.CreatedBy = s
 	}
 
 	if dataClassifications, ok := rawStrings["data_classifications"]; ok {
-		if dcs, ok := dataClassifications.([]interface{}); !ok {
+		dcs, ok := dataClassifications.([]interface{})
+		if !ok {
 			msg := fmt.Sprintf("data_classification at is not a []interface{}: %+v", rawStrings["data_classifications"])
 			return errors.New(msg)
-		} else {
-			m.DataClassifications = []string{}
-			for _, iface := range dcs {
-				if dc, ok := iface.(string); !ok {
-					msg := fmt.Sprintf("data classification value is not a string: %+v", iface)
-					return errors.New(msg)
-				} else {
-					m.DataClassifications = append(m.DataClassifications, dc)
-				}
+		}
+		m.DataClassifications = []string{}
+		for _, iface := range dcs {
+			dc, ok := iface.(string)
+			if !ok {
+				msg := fmt.Sprintf("data classification value is not a string: %+v", iface)
+				return errors.New(msg)
 			}
+			m.DataClassifications = append(m.DataClassifications, dc)
 		}
 	}
 
 	if dataFormat, ok := rawStrings["data_format"]; ok {
-		if s, ok := dataFormat.(string); !ok {
+		s, ok := dataFormat.(string)
+		if !ok {
 			msg := fmt.Sprintf("data_format is not a string: %+v", rawStrings["data_format"])
 			return errors.New(msg)
-		} else {
-			m.DataFormat = s
 		}
+		m.DataFormat = s
 	}
 
 	if dataStorage, ok := rawStrings["data_storage"]; ok {
-		if s, ok := dataStorage.(string); !ok {
+		s, ok := dataStorage.(string)
+		if !ok {
 			msg := fmt.Sprintf("data_storage is not a string: %+v", rawStrings["data_storage"])
 			return errors.New(msg)
-		} else {
-			m.DataStorage = s
 		}
+		m.DataStorage = s
 	}
 
 	if derivative, ok := rawStrings["derivative"]; ok {
-		if b, ok := derivative.(bool); !ok {
+		b, ok := derivative.(bool)
+		if !ok {
 			msg := fmt.Sprintf("derivative is not a boolean: %+v", rawStrings["derivative"])
 			return errors.New(msg)
-		} else {
-			m.Derivative = b
 		}
+		m.Derivative = b
 	}
 
 	if duaUrl, ok := rawStrings["dua_url"]; ok {
@@ -142,39 +142,38 @@ func (m *Metadata) UnmarshalJSON(j []byte) error {
 		if !ok {
 			msg := fmt.Sprintf("dua url is not a string: %+v", rawStrings["dua_url"])
 			return errors.New(msg)
-		} else {
-			u, err := url.Parse(d)
-			if err != nil {
-				msg := fmt.Sprintf("failed to parse dua url at as url: %+v", rawStrings["dua_url"])
-				return errors.New(msg)
-			}
-			m.DuaURL = u
 		}
+		u, err := url.Parse(d)
+		if err != nil {
+			msg := fmt.Sprintf("failed to parse dua url at as url: %+v", rawStrings["dua_url"])
+			return errors.New(msg)
+		}
+		m.DuaURL = u
 	}
 
 	if modifiedAt, ok := rawStrings["modified_at"]; ok {
-		if ma, ok := modifiedAt.(string); !ok {
+		ma, ok := modifiedAt.(string)
+		if !ok {
 			msg := fmt.Sprintf("modified_at is not a string: %+v", rawStrings["modified_at"])
 			return errors.New(msg)
-		} else {
-			if ma != "" {
-				t, err := time.Parse(time.RFC3339, ma)
-				if err != nil {
-					msg := fmt.Sprintf("failed to parse modified_at as time: %+v", t)
-					return errors.New(msg)
-				}
-				m.ModifiedAt = &t
+		}
+		if ma != "" {
+			t, err := time.Parse(time.RFC3339, ma)
+			if err != nil {
+				msg := fmt.Sprintf("failed to parse modified_at as time: %+v", t)
+				return errors.New(msg)
 			}
+			m.ModifiedAt = &t
 		}
 	}
 
 	if modifiedBy, ok := rawStrings["modified_by"]; ok {
-		if s, ok := modifiedBy.(string); !ok {
+		s, ok := modifiedBy.(string)
+		if !ok {
 			msg := fmt.Sprintf("modified_by is not a string: %+v", rawStrings["modified_by"])
 			return errors.New(msg)
-		} else {
-			m.ModifiedBy = s
 		}
+		m.ModifiedBy = s
 	}
 
 	if proctorResponseURL, ok := rawStrings["proctor_response_url"]; ok {
@@ -182,29 +181,32 @@ func (m *Metadata) UnmarshalJSON(j []byte) error {
 		if !ok {
 			msg := fmt.Sprintf("proctor_response_url is not a string: %+v", rawStrings["proctor_response_url"])
 			return errors.New(msg)
-		} else {
-			u, err := url.Parse(p)
-			if err != nil {
-				msg := fmt.Sprintf("failed to parse proctor_response_url at as url: %+v", rawStrings["proctor_response_url"])
-				return errors.New(msg)
-			}
-			m.ProctorResponseURL = u
 		}
+		u, err := url.Parse(p)
+		if err != nil {
+			msg := fmt.Sprintf("failed to parse proctor_response_url at as url: %+v", rawStrings["proctor_response_url"])
+			return errors.New(msg)
+		}
+		m.ProctorResponseURL = u
 	}
 
 	if sourceIds, ok := rawStrings["source_ids"]; ok {
-		if sids, ok := sourceIds.([]interface{}); !ok {
-			msg := fmt.Sprintf("source_ids at is not a []interface{}: %+v", rawStrings["source_ids"])
-			return errors.New(msg)
+		if sourceIds == nil {
+			m.SourceIDs = []string{}
 		} else {
+			sids, ok := sourceIds.([]interface{})
+			if !ok {
+				msg := fmt.Sprintf("source_ids at is not a []interface{}: %+v", rawStrings["source_ids"])
+				return errors.New(msg)
+			}
 			m.SourceIDs = []string{}
 			for _, iface := range sids {
-				if sid, ok := iface.(string); !ok {
+				sid, ok := iface.(string)
+				if !ok {
 					msg := fmt.Sprintf("source id value is not a string: %+v", iface)
 					return errors.New(msg)
-				} else {
-					m.SourceIDs = append(m.SourceIDs, sid)
 				}
+				m.SourceIDs = append(m.SourceIDs, sid)
 			}
 		}
 	}

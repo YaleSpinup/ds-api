@@ -187,7 +187,7 @@ func (s *S3Repository) Create(ctx context.Context, account, id string, metadata 
 		Key:         aws.String(key),
 	})
 	if err != nil {
-		return nil, ErrCode("failed to put s3 metadata object "+key, err)
+		return nil, ErrCode("failed to put s3 metadata object: "+key, err)
 	}
 
 	log.Debugf("output from s3 metadata object put: %+v", out)
@@ -218,7 +218,7 @@ func (s *S3Repository) Get(ctx context.Context, account, id string) (*dataset.Me
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		return nil, ErrCode("failed to get metadata object from s3 "+key, err)
+		return nil, ErrCode("failed to get metadata object from s3: "+key, err)
 	}
 	defer out.Body.Close()
 
@@ -259,6 +259,20 @@ func (s *S3Repository) Delete(ctx context.Context, account, id string) error {
 	}
 
 	log.Debugf("deleting s3metadatarepository object in account '%s' with id: %s", account, id)
+
+	key := s.Prefix + "/" + account
+	if !strings.HasSuffix(account, "/") && !strings.HasPrefix(id, "/") {
+		key = key + "/"
+	}
+	key = key + id
+
+	_, err := s.S3.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return ErrCode("failed to delete s3 metadata object: "+key, err)
+	}
 
 	return nil
 }

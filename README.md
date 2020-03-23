@@ -13,6 +13,7 @@ GET /v1/ds/metrics
 
 POST /v1/ds/{account}/datasets
 GET /v1/ds/{account}/datasets/{id}
+DELETE /v1/ds/{account}/datasets/{id}
 ```
 
 ## Usage
@@ -163,6 +164,17 @@ GET /v1/ds/{account}/datasets/{id}
 | **404 Not Found**             | dataset not found                    |
 | **500 Internal Server Error** | a server error occurred              |
 
+### Delete a dataset
+
+DELETE /v1/ds/{account}/datasets/{id}
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **204 OK**                    | okay                                 |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | dataset not found                    |
+| **500 Internal Server Error** | a server error occurred              |
+
 
 ## Authentication
 
@@ -180,7 +192,10 @@ You can specify a single `metadataRepository` where metadata about all the diffe
         {
             "Effect": "Allow",
             "Action": "s3:*",
-            "Resource": "arn:aws:s3:::spinup-example-metadata-repository/*"
+            "Resource": [
+                "arn:aws:s3:::spinup-example-metadata-repository",
+                "arn:aws:s3:::spinup-example-metadata-repository/*"
+            ]
         }
     ]
 }
