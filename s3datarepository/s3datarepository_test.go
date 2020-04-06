@@ -21,27 +21,38 @@ import (
 // mockS3Client is a fake S3 client
 type mockS3Client struct {
 	s3iface.S3API
-	t         *testing.T
-	err       map[string]error
-	headCount uint
+	t   *testing.T
+	err map[string]error
 }
 
 func newMockS3Client(t *testing.T) s3iface.S3API {
 	return &mockS3Client{
-		t:         t,
-		err:       make(map[string]error),
-		headCount: 0,
+		t:   t,
+		err: make(map[string]error),
 	}
 }
 
 var testTime = time.Now().UTC().Truncate(time.Second)
 
+func (m *mockS3Client) WaitUntilBucketExistsWithContext(ctx context.Context, input *s3.HeadBucketInput, opts ...request.WaiterOption) error {
+	if err, ok := m.err["WaitUntilBucketExistsWithContext"]; ok {
+		return err
+	}
+
+	if strings.HasSuffix(aws.StringValue(input.Bucket), "-exists") {
+		return nil
+	}
+
+	if strings.HasSuffix(aws.StringValue(input.Bucket), "-missing") {
+		return awserr.New(s3.ErrCodeNoSuchBucket, "Not Found", nil)
+	}
+
+	return nil
+}
+
 func (m *mockS3Client) HeadBucketWithContext(ctx context.Context, input *s3.HeadBucketInput, opts ...request.Option) (*s3.HeadBucketOutput, error) {
 	if err, ok := m.err["HeadBucketWithContext"]; ok {
-		if m.headCount == 0 {
-			m.headCount++
-			return nil, err
-		}
+		return nil, err
 	}
 
 	if aws.StringValue(input.Bucket) == "testbucket" {
@@ -278,7 +289,7 @@ func TestProvision(t *testing.T) {
 	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
 	id = "68004EEC-6044-45C9-91E5-AF836DCD9234-missing"
 	expectedCode = apierror.ErrInternalError
-	expectedMessage = fmt.Sprintf("failed to create bucket dataset-%s, timeout waiting for create: s3 bucket (dataset-%s) doesn't exist", id, id)
+	expectedMessage = fmt.Sprintf("failed to create bucket dataset-%s, timeout waiting for create: NoSuchBucket: Not Found", id)
 
 	_, err = s.Provision(context.TODO(), id, testTags)
 	if err == nil {
