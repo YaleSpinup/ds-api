@@ -22,7 +22,7 @@ type MetadataRepository interface {
 
 // DataRepository is an interface for data repository
 type DataRepository interface {
-	Provision(ctx context.Context, id string, tags []*Tag) (string, error)
+	Provision(ctx context.Context, id string, derivative bool, tags []*Tag) (string, error)
 	Deprovision(ctx context.Context, id string) error
 	Delete(ctx context.Context, id string) error
 	Describe(ctx context.Context, id string) (*Repository, error)

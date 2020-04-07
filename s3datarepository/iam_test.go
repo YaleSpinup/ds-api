@@ -14,6 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go/service/sts/stsiface"
 )
 
 // mockIAMClient is a fake IAM client
@@ -23,10 +25,22 @@ type mockIAMClient struct {
 	err map[string]error
 }
 
+// mockSTSClient is a fake STS client
+type mockSTSClient struct {
+	stsiface.STSAPI
+	t *testing.T
+}
+
 func newMockIAMClient(t *testing.T) iamiface.IAMAPI {
 	return &mockIAMClient{
 		t:   t,
 		err: make(map[string]error),
+	}
+}
+
+func newMockSTSClient(t *testing.T) stsiface.STSAPI {
+	return &mockSTSClient{
+		t: t,
 	}
 }
 
@@ -139,6 +153,14 @@ func (i *mockIAMClient) RemoveRoleFromInstanceProfileWithContext(ctx context.Con
 		return nil, err
 	}
 	return &iam.RemoveRoleFromInstanceProfileOutput{}, nil
+}
+
+func (i *mockSTSClient) GetCallerIdentityWithContext(ctx context.Context, input *sts.GetCallerIdentityInput, opts ...request.Option) (*sts.GetCallerIdentityOutput, error) {
+	return &sts.GetCallerIdentityOutput{
+		Account: aws.String("123456789012"),
+		Arn:     aws.String("arn:aws:iam::123456789012:user/test"),
+		UserId:  aws.String("test"),
+	}, nil
 }
 
 func TestGrantAccess(t *testing.T) {
