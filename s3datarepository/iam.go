@@ -59,7 +59,7 @@ func (s *S3Repository) createPolicy(ctx context.Context, id string, derivative b
 
 	// create policy
 	policyOutput, err := s.IAM.CreatePolicyWithContext(ctx, &iam.CreatePolicyInput{
-		Description:    aws.String(fmt.Sprintf("Access policy for bucket %s", name)),
+		Description:    aws.String(fmt.Sprintf("Access policy for dataset bucket %s", name)),
 		Path:           aws.String(s.IAMPathPrefix),
 		PolicyDocument: aws.String(string(policyDoc)),
 		PolicyName:     aws.String(policyName),
