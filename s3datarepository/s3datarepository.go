@@ -17,6 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go/service/sts/stsiface"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,6 +31,7 @@ type S3Repository struct {
 	IAMPathPrefix string
 	IAM           iamiface.IAMAPI
 	S3            s3iface.S3API
+	STS           stsiface.STSAPI
 	config        *aws.Config
 }
 
@@ -88,6 +91,8 @@ func New(opts ...S3RepositoryOption) (*S3Repository, error) {
 
 	s.IAM = iam.New(sess)
 	s.S3 = s3.New(sess)
+	s.STS = sts.New(sess)
+
 	return &s, nil
 }
 
@@ -208,7 +213,8 @@ func (s *S3Repository) Describe(ctx context.Context, id string) (*dataset.Reposi
 // 3. Block all public access to the bucket
 // 4. Enable AWS managed serverside encryption (AES-256) for the bucket
 // 5. Add tags to the bucket
-func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*dataset.Tag) (string, error) {
+// 6. Create IAM policy for accessing the bucket
+func (s *S3Repository) Provision(ctx context.Context, id string, derivative bool, datasetTags []*dataset.Tag) (string, error) {
 	if id == "" {
 		return "", apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
@@ -257,7 +263,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 	}
 
 	// append bucket delete to rollback tasks
-	rbfunc := func() error {
+	rollBackTasks = append(rollBackTasks, func() error {
 		return func() error {
 			log.Debugf("deleting s3 bucket: %s", name)
 			if _, err := s.S3.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{Bucket: aws.String(name)}); err != nil {
@@ -265,8 +271,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 			}
 			return nil
 		}()
-	}
-	rollBackTasks = append(rollBackTasks, rbfunc)
+	})
 
 	// wait for bucket to exist
 	if err = s.S3.WaitUntilBucketExistsWithContext(ctx, &s3.HeadBucketInput{Bucket: aws.String(name)},
@@ -320,6 +325,12 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 		}
 	}
 
+	// create appropriate dataset access policy
+	log.Debugf("creating dataset access policy for %s (derivative: %t)", id, derivative)
+	if err = s.createPolicy(ctx, id, derivative); err != nil {
+		return "", ErrCode("failed to create access policy for s3 bucket "+name, err)
+	}
+
 	return name, nil
 }
 
@@ -339,7 +350,7 @@ func (s *S3Repository) Deprovision(ctx context.Context, id string) error {
 	return nil
 }
 
-// Delete deletes a data repository in S3
+// Delete deletes a data repository in S3 and its associated IAM policy
 func (s *S3Repository) Delete(ctx context.Context, id string) error {
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
@@ -356,6 +367,12 @@ func (s *S3Repository) Delete(ctx context.Context, id string) error {
 	_, err := s.S3.DeleteBucketWithContext(ctx, &s3.DeleteBucketInput{Bucket: aws.String(name)})
 	if err != nil {
 		return ErrCode("failed to delete s3 bucket "+name, err)
+	}
+
+	// delete associated dataset access policy
+	log.Debugf("deleting dataset access policy for %s", id)
+	if err = s.deletePolicy(ctx, id); err != nil {
+		log.Warnf("failed to delete access policy for s3 bucket %s: %s", id, err)
 	}
 
 	return nil

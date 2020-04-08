@@ -74,14 +74,6 @@ POST /v1/ds/{account}/datasets
             "e15d2282-9c68-46b5-801c-2b5a62484624",
             "a7c082ee-f711-48fa-8a57-25c95b3a6ddd"
         ]
-    },
-    "access": {
-        "instance_profile_arn": "arn:aws:iam::516855177326:instance-profile/roleDataset_d37b375b-d136-4b17-8666-5036dc554a66",
-        "instance_profile_name": "roleDataset_d37b375b-d136-4b17-8666-5036dc554a66",
-        "policy_arn": "arn:aws:iam::516855177326:policy/dataset-localdev-d37b375b-d136-4b17-8666-5036dc554a66-DerivativePlc",
-        "policy_name": "dataset-localdev-d37b375b-d136-4b17-8666-5036dc554a66-DerivativePlc",
-        "role_arn": "arn:aws:iam::516855177326:role/roleDataset_d37b375b-d136-4b17-8666-5036dc554a66",
-        "role_name": "roleDataset_d37b375b-d136-4b17-8666-5036dc554a66"
     }
 }
 ```

@@ -196,7 +196,7 @@ func TestProvision(t *testing.T) {
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	expected := "68004EEC-6044-45C9-91E5-AF836DCD9234"
 
-	got, err := s.Provision(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234", testTags)
+	got, err := s.Provision(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234", false, testTags)
 	if err != nil {
 		t.Errorf("expected nil error, got: %s", err)
 	}
@@ -209,7 +209,7 @@ func TestProvision(t *testing.T) {
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	expected = "dataset-68004EEC-6044-45C9-91E5-AF836DCD9234"
 
-	got, err = s.Provision(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234", []*dataset.Tag{})
+	got, err = s.Provision(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234", false, []*dataset.Tag{})
 	if err != nil {
 		t.Errorf("expected nil error, got: %s", err)
 	}
@@ -223,7 +223,7 @@ func TestProvision(t *testing.T) {
 	expectedCode = apierror.ErrBadRequest
 	expectedMessage = "invalid input"
 
-	_, err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, false, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -245,7 +245,7 @@ func TestProvision(t *testing.T) {
 	expectedCode = apierror.ErrConflict
 	expectedMessage = "s3 bucket already exists"
 
-	_, err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, false, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -269,7 +269,7 @@ func TestProvision(t *testing.T) {
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	s.S3.(*mockS3Client).err["CreateBucketWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
-	_, err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, false, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -291,7 +291,7 @@ func TestProvision(t *testing.T) {
 	expectedCode = apierror.ErrInternalError
 	expectedMessage = fmt.Sprintf("failed to create bucket dataset-%s, timeout waiting for create: NoSuchBucket: Not Found", id)
 
-	_, err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, false, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -315,7 +315,7 @@ func TestProvision(t *testing.T) {
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	s.S3.(*mockS3Client).err["PutPublicAccessBlockWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
-	_, err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, false, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -339,7 +339,7 @@ func TestProvision(t *testing.T) {
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	s.S3.(*mockS3Client).err["PutBucketEncryptionWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
-	_, err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, false, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -363,7 +363,7 @@ func TestProvision(t *testing.T) {
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	s.S3.(*mockS3Client).err["PutBucketTaggingWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
-	_, err = s.Provision(context.TODO(), id, testTags)
+	_, err = s.Provision(context.TODO(), id, false, testTags)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
@@ -389,14 +389,14 @@ func TestDelete(t *testing.T) {
 	var expectedCode, expectedMessage, id string
 
 	// test success
-	s := S3Repository{S3: newMockS3Client(t)}
+	s := S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
 	err := s.Delete(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234")
 	if err != nil {
 		t.Errorf("expected nil error, got: %s", err)
 	}
 
 	// test empty id
-	s = S3Repository{S3: newMockS3Client(t)}
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
 	err = s.Delete(context.TODO(), "")
 	if aerr, ok := err.(apierror.Error); ok {
 		if aerr.Code != apierror.ErrBadRequest {
@@ -407,7 +407,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	// test ErrCodeNoSuchBucket
-	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
 	id = "68004EEC-6044-45C9-91E5-AF836DCD9234"
 	expectedCode = apierror.ErrNotFound
 	expectedMessage = fmt.Sprintf("failed to delete s3 bucket dataset-%s", id)
@@ -430,7 +430,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	// test NotFound
-	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
 	id = "68004EEC-6044-45C9-91E5-AF836DCD9234"
 	expectedCode = apierror.ErrNotFound
 	expectedMessage = fmt.Sprintf("failed to delete s3 bucket dataset-%s", id)
@@ -453,7 +453,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	// test BucketNotEmpty
-	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
 	id = "68004EEC-6044-45C9-91E5-AF836DCD9234"
 	expectedCode = apierror.ErrConflict
 	expectedMessage = fmt.Sprintf("failed to delete s3 bucket dataset-%s", id)
@@ -476,7 +476,7 @@ func TestDelete(t *testing.T) {
 	}
 
 	// test non-aws error
-	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
 	id = "68004EEC-6044-45C9-91E5-AF836DCD9234"
 	expectedCode = apierror.ErrInternalError
 	expectedMessage = fmt.Sprintf("failed to delete s3 bucket dataset-%s", id)

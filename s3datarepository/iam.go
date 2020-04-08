@@ -10,6 +10,7 @@ import (
 	"github.com/YaleSpinup/ds-api/dataset"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/sts"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -25,6 +26,107 @@ type PolicyStatement struct {
 type PolicyDoc struct {
 	Version   string
 	Statement []PolicyStatement
+}
+
+// createPolicy creates the appropriate access policy for the data repository, depending if it's a derivative or not
+func (s *S3Repository) createPolicy(ctx context.Context, id string, derivative bool) error {
+	if id == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
+
+	policyName := fmt.Sprintf("policy-%s", name)
+
+	var policyDoc []byte
+	var err error
+
+	log.Debugf("generating access policy for bucket '%s'", name)
+
+	if derivative {
+		policyDoc, err = s.derivativeAccessPolicy(name)
+	} else {
+		policyDoc, err = s.originalAccessPolicy(name)
+	}
+	if err != nil {
+		return ErrCode("failed to generate IAM policy for bucket "+name, err)
+	}
+
+	log.Debugf("creating access policy for bucket '%s'", name)
+
+	// create policy
+	policyOutput, err := s.IAM.CreatePolicyWithContext(ctx, &iam.CreatePolicyInput{
+		Description:    aws.String(fmt.Sprintf("Access policy for dataset bucket %s", name)),
+		Path:           aws.String(s.IAMPathPrefix),
+		PolicyDocument: aws.String(string(policyDoc)),
+		PolicyName:     aws.String(policyName),
+	})
+	if err != nil {
+		return ErrCode("failed to create IAM policy", err)
+	}
+
+	log.Debugf("created policy: %s", *policyOutput.Policy.Arn)
+
+	return nil
+}
+
+// deletePolicy deletes the access policy for the given data repository
+func (s *S3Repository) deletePolicy(ctx context.Context, id string) error {
+	if id == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
+
+	policyName := fmt.Sprintf("policy-%s", name)
+
+	policyArn, err := s.getPolicyArn(ctx, policyName)
+	if err != nil {
+		return ErrCode("failed to get ARN for policy "+policyName, err)
+	}
+
+	// TODO: check if policy is used anywhere before deleting
+
+	if _, err = s.IAM.DeletePolicyWithContext(ctx, &iam.DeletePolicyInput{PolicyArn: aws.String(policyArn)}); err != nil {
+		return ErrCode("failed to delete policy "+policyArn, err)
+	}
+
+	log.Debugf("deleted policy: %s", policyArn)
+
+	return nil
+}
+
+// getPolicyArn constructs the policy ARN from the policy name
+func (s *S3Repository) getPolicyArn(ctx context.Context, name string) (string, error) {
+	if name == "" {
+		return "", apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty name"))
+	}
+
+	// prepend the path prefix
+	if s.IAMPathPrefix == "" {
+		name = "/" + name
+	} else {
+		name = s.IAMPathPrefix + name
+	}
+
+	log.Debugf("constructing ARN for policy %s", name)
+
+	callerID, err := s.STS.GetCallerIdentityWithContext(ctx, &sts.GetCallerIdentityInput{})
+	if err != nil {
+		return "", err
+	}
+
+	policyArn := fmt.Sprintf("arn:aws:iam::%s:policy%s", *callerID.Account, name)
+
+	log.Debugf("policy ARN: %s", policyArn)
+
+	return policyArn, nil
 }
 
 // GrantAccess sets up the appropriate access to the data repository, depending if it's a derivative or not,

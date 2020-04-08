@@ -110,7 +110,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	// create dataset storage location
 	var dataRepoName string
 	log.Infof("provisioning dataset repository for %s", id)
-	dataRepoName, err = dataRepo.Provision(r.Context(), id, input.Tags)
+	dataRepoName, err = dataRepo.Provision(r.Context(), id, input.Derivative, input.Tags)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -120,25 +120,6 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	rollBackTasks = append(rollBackTasks, func() error {
 		return func() error {
 			if err := dataRepo.Delete(r.Context(), id); err != nil {
-				return err
-			}
-			return nil
-		}()
-	})
-
-	// grant appropriate dataset access
-	var datasetAccess dataset.Access
-	log.Infof("granting dataset access for %s (derivative: %t)", id, input.Derivative)
-	datasetAccess, err = dataRepo.GrantAccess(r.Context(), id, input.Derivative)
-	if err != nil {
-		handleError(w, err)
-		return
-	}
-
-	// append access cleanup to rollback tasks
-	rollBackTasks = append(rollBackTasks, func() error {
-		return func() error {
-			if err := dataRepo.RevokeAccess(r.Context(), id); err != nil {
 				return err
 			}
 			return nil
@@ -157,12 +138,10 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		ID         string            `json:"id"`
 		Repository string            `json:"repository"`
 		Metadata   *dataset.Metadata `json:"metadata"`
-		Access     dataset.Access    `json:"access"`
 	}{
 		id,
 		dataRepoName,
 		metadataOutput,
-		datasetAccess,
 	}
 
 	j, err := json.Marshal(&output)
@@ -309,11 +288,6 @@ func (s *server) DatasetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		msg := fmt.Sprintf("failed to delete metadata for dataset %s", id)
 		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
 		return
-	}
-
-	// revoke access to the data repository (cleans up associated IAM policies)
-	if err = dataRepo.RevokeAccess(r.Context(), id); err != nil {
-		log.Warnf("failed to revoke data repository access for dataset %s: %s", id, err)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
