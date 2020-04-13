@@ -14,6 +14,10 @@ GET /v1/ds/metrics
 POST /v1/ds/{account}/datasets
 GET /v1/ds/{account}/datasets/{id}
 DELETE /v1/ds/{account}/datasets/{id}
+
+GET /v1/ds/{account}/datasets/{id}/servers
+POST /v1/ds/{account}/datasets/{id}/servers
+DELETE /v1/ds/{account}/datasets/{id}/servers/{instance_id}
 ```
 
 ## Usage
@@ -166,6 +170,62 @@ DELETE /v1/ds/{account}/datasets/{id}
 | **400 Bad Request**           | badly formed request                 |
 | **404 Not Found**             | dataset not found                    |
 | **500 Internal Server Error** | a server error occurred              |
+
+
+### List all servers that have access to a dataset
+
+GET /v1/ds/{account}/datasets/{id}/servers
+
+```json
+{
+    "id": "95db5a7b-466b-4aa7-bbe1-1e23ed860f32",
+    "access": {
+        "i-01f9bfb7ee683e807": "arn:aws:iam::123456789012:instance-profile/spinup/dataset/instanceRole_i-01f9bfb7ee683e807"
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | okay                                 |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | dataset not found                    |
+| **500 Internal Server Error** | a server error occurred              |
+
+### Grant dataset access to a server
+
+POST /v1/ds/{account}/datasets/{id}/servers
+
+```json
+{
+	"instance_id": "i-01f9bfb7ee683e807"
+}
+```
+
+#### Response
+
+```json
+{
+    "id": "95db5a7b-466b-4aa7-bbe1-1e23ed860f32",
+    "access": {
+        "i-01f9bfb7ee683e807": "arn:aws:iam::123456789012:instance-profile/spinup/dataset/instanceRole_i-01f9bfb7ee683e807"
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | server access granted                |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | account not found                    |
+| **409 Conflict**              | server already has access to dataset |
+| **500 Internal Server Error** | a server error occurred              |
+
+### Revoke dataset access from a server
+
+DELETE /v1/ds/{account}/datasets/{id}/servers/{instance_id}
+
+TODO
 
 
 ## Authentication
