@@ -180,7 +180,7 @@ GET /v1/ds/{account}/datasets/{id}/servers
 {
     "id": "95db5a7b-466b-4aa7-bbe1-1e23ed860f32",
     "access": {
-        "i-01f9bfb7ee683e807": "arn:aws:iam::123456789012:instance-profile/spinup/dataset/instanceRole_i-01f9bfb7ee683e807"
+        "i-01f9bfb7ee683e807": "instanceRole_i-01f9bfb7ee683e807"
     }
 }
 ```
@@ -208,7 +208,7 @@ POST /v1/ds/{account}/datasets/{id}/servers
 {
     "id": "95db5a7b-466b-4aa7-bbe1-1e23ed860f32",
     "access": {
-        "i-01f9bfb7ee683e807": "arn:aws:iam::123456789012:instance-profile/spinup/dataset/instanceRole_i-01f9bfb7ee683e807"
+        "i-01f9bfb7ee683e807": "instanceRole_i-01f9bfb7ee683e807"
     }
 }
 ```
@@ -225,7 +225,12 @@ POST /v1/ds/{account}/datasets/{id}/servers
 
 DELETE /v1/ds/{account}/datasets/{id}/servers/{instance_id}
 
-TODO
+| Response Code                 | Definition                                 |
+| ----------------------------- | -------------------------------------------|
+| **204 OK**                    | okay                                       |
+| **400 Bad Request**           | bad request, or server doesn't have access |
+| **404 Not Found**             | dataset not found                          |
+| **500 Internal Server Error** | a server error occurred                    |
 
 
 ## Authentication
@@ -272,6 +277,7 @@ You can then define a list of `accounts` for the actual dataset repositories - t
         {
             "Effect": "Allow",
             "Action": [
+                "iam:GetRole",
                 "iam:GetInstanceProfile",
                 "iam:ListAttachedRolePolicies",
                 "iam:PassRole"

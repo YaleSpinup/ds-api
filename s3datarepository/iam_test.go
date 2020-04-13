@@ -3,13 +3,10 @@ package s3datarepository
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/YaleSpinup/ds-api/apierror"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
@@ -167,107 +164,5 @@ func TestGrantAccess(t *testing.T) {
 }
 
 func TestRevokeAccess(t *testing.T) {
-	var expectedCode, expectedMessage, id string
-
-	// test success
-	s := S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
-	id = "78DAFEF1-E4D3-48E5-A45C-6E3CA0161F08"
-	err := s.RevokeAccess(context.TODO(), id)
-	if err != nil {
-		t.Errorf("expected nil error, got: %s", err)
-	}
-
-	// test empty id
-	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
-	err = s.RevokeAccess(context.TODO(), "")
-	if aerr, ok := err.(apierror.Error); ok {
-		if aerr.Code != apierror.ErrBadRequest {
-			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
-		}
-	} else {
-		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-	}
-
-	expectedCode = apierror.ErrInternalError
-	expectedMessage = fmt.Sprintf("one or more errors trying to revoke access for data repository dataset-%s", id)
-
-	// test list role policies failure
-	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
-	s.IAM.(*mockIAMClient).err["ListAttachedRolePoliciesWithContext"] = awserr.New("InternalError", "Internal Error", nil)
-
-	err = s.RevokeAccess(context.TODO(), id)
-	if err == nil {
-		t.Error("expected error, got: nil")
-	} else {
-		if aerr, ok := err.(apierror.Error); ok {
-			if aerr.Code != expectedCode {
-				t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
-			}
-			if aerr.Message != expectedMessage {
-				t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
-			}
-		} else {
-			t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-		}
-	}
-
-	// test remove role from instance profile failure
-	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
-	s.IAM.(*mockIAMClient).err["RemoveRoleFromInstanceProfileWithContext"] = awserr.New("InternalError", "Internal Error", nil)
-
-	err = s.RevokeAccess(context.TODO(), id)
-	if err == nil {
-		t.Error("expected error, got: nil")
-	} else {
-		if aerr, ok := err.(apierror.Error); ok {
-			if aerr.Code != expectedCode {
-				t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
-			}
-			if aerr.Message != expectedMessage {
-				t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
-			}
-		} else {
-			t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-		}
-	}
-
-	// test delete instance profile failure
-	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
-	s.IAM.(*mockIAMClient).err["DeleteInstanceProfileWithContext"] = awserr.New("InternalError", "Internal Error", nil)
-
-	err = s.RevokeAccess(context.TODO(), id)
-	if err == nil {
-		t.Error("expected error, got: nil")
-	} else {
-		if aerr, ok := err.(apierror.Error); ok {
-			if aerr.Code != expectedCode {
-				t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
-			}
-			if aerr.Message != expectedMessage {
-				t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
-			}
-		} else {
-			t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-		}
-	}
-
-	// test delete role failure
-	s = S3Repository{NamePrefix: "dataset", IAMPathPrefix: "/test/", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
-	s.IAM.(*mockIAMClient).err["DeleteRoleWithContext"] = awserr.New("InternalError", "Internal Error", nil)
-
-	err = s.RevokeAccess(context.TODO(), id)
-	if err == nil {
-		t.Error("expected error, got: nil")
-	} else {
-		if aerr, ok := err.(apierror.Error); ok {
-			if aerr.Code != expectedCode {
-				t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
-			}
-			if aerr.Message != expectedMessage {
-				t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
-			}
-		} else {
-			t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
-		}
-	}
+	t.Log("TODO")
 }

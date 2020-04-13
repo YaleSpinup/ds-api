@@ -164,16 +164,52 @@ func (s *server) ServerDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	id := vars["id"]
 	instanceID := vars["instance_id"]
 
-	// service, ok := s.datasetServices[account]
-	// if !ok {
-	// 	msg := fmt.Sprintf("account not found: %s", account)
-	// 	handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
-	// 	return
-	// }
+	service, ok := s.datasetServices[account]
+	if !ok {
+		msg := fmt.Sprintf("account not found: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
 
-	log.Debugf("revoking access to data set '%s' in account %s for server: %s", id, account, instanceID)
+	log.Infof("revoking access to data set '%s' in account %s for server: %s", id, account, instanceID)
+
+	metadataOutput, err := service.MetadataRepository.Get(r.Context(), account, id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	dataRepo, ok := service.DataRepository[metadataOutput.DataStorage]
+	if !ok {
+		msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadataOutput.DataStorage)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		return
+	}
+
+	// list current access to this data repository
+	listAccess, err := dataRepo.ListAccess(r.Context(), id)
+	if err != nil {
+		msg := fmt.Sprintf("failed to list access to data repository for dataset %s: %s", id, err)
+		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
+		return
+	}
+
+	// check if requested server currently has access
+	if _, found := listAccess[instanceID]; !found {
+		msg := fmt.Sprintf("instance %s currently does not have access to data repository for dataset %s", instanceID, id)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		return
+	}
+
+	// revoke access to this data repository
+	err = dataRepo.RevokeAccess(r.Context(), id, instanceID)
+	if err != nil {
+		msg := fmt.Sprintf("failed to revoke access to data repository for dataset %s: %s", id, err)
+		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
+	w.WriteHeader(http.StatusNoContent)
 	w.Write([]byte{})
 }

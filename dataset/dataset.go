@@ -28,7 +28,7 @@ type DataRepository interface {
 	Describe(ctx context.Context, id string) (*Repository, error)
 	GrantAccess(ctx context.Context, id, instanceID string) (Access, error)
 	ListAccess(ctx context.Context, id string) (Access, error)
-	RevokeAccess(ctx context.Context, id string) error
+	RevokeAccess(ctx context.Context, id, instanceID string) error
 }
 
 // Access contains necessary information in order to access a dataset

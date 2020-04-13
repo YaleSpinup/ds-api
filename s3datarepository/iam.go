@@ -11,6 +11,7 @@ import (
 	"github.com/YaleSpinup/ds-api/apierror"
 	"github.com/YaleSpinup/ds-api/dataset"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/sts"
@@ -133,8 +134,8 @@ func (s *S3Repository) getPolicyArn(ctx context.Context, name string) (string, e
 }
 
 // ListAccess lists all instances that have access to the data repository
-// Returns a map with the instance id's and their assigned instance profile arn,
-// e.g. { "instance_id": "instance_profile_arn" }
+// Returns a map with the instance id's and their assigned instance profile,
+// e.g. { "instance_id": "instance_profile_name" }
 func (s *S3Repository) ListAccess(ctx context.Context, id string) (dataset.Access, error) {
 	if id == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
@@ -220,7 +221,12 @@ func (s *S3Repository) ListAccess(ctx context.Context, id string) (dataset.Acces
 		for _, reservation := range instancesOut.Reservations {
 			for _, instance := range reservation.Instances {
 				log.Debugf("found instance %v", aws.StringValue(instance.InstanceId))
-				output[aws.StringValue(instance.InstanceId)] = aws.StringValue(instance.IamInstanceProfile.Arn)
+
+				// we only have the instance profile arn, so let's extract the name
+				ipArns := strings.Split(aws.StringValue(instance.IamInstanceProfile.Arn), "/")
+				instanceProfileName := ipArns[len(ipArns)-1]
+
+				output[aws.StringValue(instance.InstanceId)] = instanceProfileName
 			}
 		}
 	}
@@ -285,36 +291,115 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id, instanceID string) (
 		}
 	}()
 
-	// create role for this instance
+	// the instance role name is programmatically determined
+	// it is equivalent to the instance profile name
 	roleName := fmt.Sprintf("instanceRole_%s", instanceID)
-	roleDoc, err := s.assumeRolePolicy()
-	if err != nil {
-		return nil, ErrCode("failed to generate IAM assume role policy for bucket "+name, err)
-	}
 
-	var roleOutput *iam.CreateRoleOutput
-	roleOutput, err = s.IAM.CreateRoleWithContext(ctx, &iam.CreateRoleInput{
-		AssumeRolePolicyDocument: aws.String(string(roleDoc)),
-		Description:              aws.String(fmt.Sprintf("Role for instance %s", instanceID)),
-		Path:                     aws.String(s.IAMPathPrefix),
-		RoleName:                 aws.String(roleName),
+	// check if role for this instance already exists and create it if it doesn't
+	var roleExists bool
+	_, err = s.IAM.GetRole(&iam.GetRoleInput{
+		RoleName: aws.String(roleName),
 	})
-	if err != nil {
-		return nil, ErrCode("failed to create IAM role "+roleName, err)
-	}
-
-	// append role delete to rollback tasks
-	rollBackTasks = append(rollBackTasks, func() error {
-		return func() error {
-			log.Debug("DeleteRoleWithContext")
-			if _, err := s.IAM.DeleteRoleWithContext(ctx, &iam.DeleteRoleInput{RoleName: roleOutput.Role.RoleName}); err != nil {
-				return err
+	if err == nil {
+		roleExists = true
+		log.Debugf("role %s already exists", roleName)
+	} else {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == iam.ErrCodeNoSuchEntityException {
+				roleExists = false
+				log.Debugf("role %s does not exist", roleName)
+			} else {
+				return nil, ErrCode("failed to get IAM role "+roleName, err)
 			}
-			return nil
-		}()
-	})
+		} else {
+			return nil, ErrCode("failed to get IAM role "+roleName, err)
+		}
+	}
 
-	// attach access policy to the role
+	// if there's no exsiting role for this instance we'll create one and associate it with an
+	// instance profile with the same name
+	// we also assume that if the role exists, its corresponding instance profile already exists,
+	// which will be true unless manually modified outside of this api
+	if !roleExists {
+		log.Debugf("creating role %s", roleName)
+
+		roleDoc, err := s.assumeRolePolicy()
+		if err != nil {
+			return nil, ErrCode("failed to generate IAM assume role policy for bucket "+name, err)
+		}
+
+		var roleOutput *iam.CreateRoleOutput
+		roleOutput, err = s.IAM.CreateRoleWithContext(ctx, &iam.CreateRoleInput{
+			AssumeRolePolicyDocument: aws.String(string(roleDoc)),
+			Description:              aws.String(fmt.Sprintf("Role for instance %s", instanceID)),
+			Path:                     aws.String(s.IAMPathPrefix),
+			RoleName:                 aws.String(roleName),
+		})
+		if err != nil {
+			return nil, ErrCode("failed to create IAM role "+roleName, err)
+		}
+
+		// append role delete to rollback tasks
+		rollBackTasks = append(rollBackTasks, func() error {
+			return func() error {
+				log.Debug("DeleteRoleWithContext")
+				if _, err := s.IAM.DeleteRoleWithContext(ctx, &iam.DeleteRoleInput{RoleName: roleOutput.Role.RoleName}); err != nil {
+					return err
+				}
+				return nil
+			}()
+		})
+
+		log.Debugf("creating instance profile %s", roleName)
+
+		var instanceProfileOutput *iam.CreateInstanceProfileOutput
+		instanceProfileOutput, err = s.IAM.CreateInstanceProfileWithContext(ctx, &iam.CreateInstanceProfileInput{
+			InstanceProfileName: aws.String(roleName),
+			Path:                aws.String(s.IAMPathPrefix),
+		})
+		if err != nil {
+			return nil, ErrCode("failed to create instance profile "+roleName, err)
+		}
+
+		// append instance profile delete to rollback tasks
+		rollBackTasks = append(rollBackTasks, func() error {
+			return func() error {
+				log.Debug("DeleteInstanceProfileWithContext")
+				if _, err := s.IAM.DeleteInstanceProfileWithContext(ctx, &iam.DeleteInstanceProfileInput{InstanceProfileName: aws.String(roleName)}); err != nil {
+					return err
+				}
+				return nil
+			}()
+		})
+
+		// add role to instance profile
+		_, err = s.IAM.AddRoleToInstanceProfileWithContext(ctx, &iam.AddRoleToInstanceProfileInput{
+			InstanceProfileName: aws.String(roleName),
+			RoleName:            aws.String(roleName),
+		})
+		if err != nil {
+			return nil, ErrCode("failed to add role to instance profile "+roleName, err)
+		}
+
+		// append role removal from instance profile to rollback tasks
+		rollBackTasks = append(rollBackTasks, func() error {
+			return func() error {
+				log.Debug("RemoveRoleFromInstanceProfileWithContext")
+				if _, err := s.IAM.RemoveRoleFromInstanceProfileWithContext(ctx, &iam.RemoveRoleFromInstanceProfileInput{
+					InstanceProfileName: aws.String(roleName),
+					RoleName:            aws.String(roleName),
+				}); err != nil {
+					return err
+				}
+				return nil
+			}()
+		})
+
+		log.Debugf("created instance profile: %s", aws.StringValue(instanceProfileOutput.InstanceProfile.InstanceProfileName))
+	}
+
+	log.Debugf("attaching policy %s to role %s", policyArn, roleName)
+
 	_, err = s.IAM.AttachRolePolicyWithContext(ctx, &iam.AttachRolePolicyInput{
 		PolicyArn: aws.String(policyArn),
 		RoleName:  aws.String(roleName),
@@ -337,118 +422,142 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id, instanceID string) (
 		}()
 	})
 
-	log.Debugf("created role: %s", roleName)
+	var instanceRoleAssociated bool
 
-	// create instance profile with the same name as the role
-	var instanceProfileOutput *iam.CreateInstanceProfileOutput
-	instanceProfileOutput, err = s.IAM.CreateInstanceProfileWithContext(ctx, &iam.CreateInstanceProfileInput{
-		InstanceProfileName: aws.String(roleName),
-		Path:                aws.String(s.IAMPathPrefix),
-	})
-	if err != nil {
-		return nil, ErrCode("failed to create instance profile "+roleName, err)
-	}
-
-	// append instance profile delete to rollback tasks
-	rollBackTasks = append(rollBackTasks, func() error {
-		return func() error {
-			log.Debug("DeleteInstanceProfileWithContext")
-			if _, err := s.IAM.DeleteInstanceProfileWithContext(ctx, &iam.DeleteInstanceProfileInput{InstanceProfileName: aws.String(roleName)}); err != nil {
-				return err
-			}
-			return nil
-		}()
-	})
-
-	// add role to instance profile
-	_, err = s.IAM.AddRoleToInstanceProfileWithContext(ctx, &iam.AddRoleToInstanceProfileInput{
-		InstanceProfileName: aws.String(roleName),
-		RoleName:            aws.String(roleName),
-	})
-	if err != nil {
-		return nil, ErrCode("failed to add role to instance profile "+roleName, err)
-	}
-
-	// append role removal from instance profile to rollback tasks
-	rollBackTasks = append(rollBackTasks, func() error {
-		return func() error {
-			log.Debug("RemoveRoleFromInstanceProfileWithContext")
-			if _, err := s.IAM.RemoveRoleFromInstanceProfileWithContext(ctx, &iam.RemoveRoleFromInstanceProfileInput{
-				InstanceProfileName: aws.String(roleName),
-				RoleName:            aws.String(roleName),
-			}); err != nil {
-				return err
-			}
-			return nil
-		}()
-	})
-
-	log.Debugf("created instance profile: %s", aws.StringValue(instanceProfileOutput.InstanceProfile.InstanceProfileName))
-
-	// if the instance already has an instance profile, we copy all policies from the existing profile
-	// into the new one and then disassociate the old profile
+	// if the instance already has some other instance profile, we copy all policies
+	// from the existing profile into the new one and then disassociate the old profile
 	if instanceInfo.IamInstanceProfile != nil {
-		log.Infof("instance %s already has instance profile %s, will try to migrate existing policies", instanceID, aws.StringValue(instanceInfo.IamInstanceProfile.Arn))
-
 		// we only have the instance profile arn, so let's extract the name
 		ipArns := strings.Split(aws.StringValue(instanceInfo.IamInstanceProfile.Arn), "/")
 		currentInstanceProfileName := ipArns[len(ipArns)-1]
-
-		// find out what role(s) correspond to this instance profile and what policies are attached to them
-		var ipOut *iam.GetInstanceProfileOutput
-		ipOut, err = s.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{
-			InstanceProfileName: aws.String(currentInstanceProfileName),
-		})
-		if err != nil {
-			return nil, ErrCode("failed to get information about current instance profile "+currentInstanceProfileName, err)
+		if currentInstanceProfileName == roleName {
+			instanceRoleAssociated = true
 		}
 
-		// TODO: we are _not_ considering role inline policies at this point, should we?
-		var currentPoliciesArn []string
-		for _, r := range ipOut.InstanceProfile.Roles {
-			log.Debugf("listing attached policies for role %s", aws.StringValue(r.RoleName))
+		if !instanceRoleAssociated {
+			log.Infof("instance %s already has instance profile %s, will try to migrate existing policies", instanceID, currentInstanceProfileName)
 
-			var attachedRolePoliciesOut *iam.ListAttachedRolePoliciesOutput
-			attachedRolePoliciesOut, err = s.IAM.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{
-				RoleName: r.RoleName,
+			// find out what role(s) correspond to this instance profile and what policies are attached to them
+			var ipOut *iam.GetInstanceProfileOutput
+			ipOut, err = s.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{
+				InstanceProfileName: aws.String(currentInstanceProfileName),
 			})
 			if err != nil {
-				return nil, ErrCode("failed to list attached policies for role "+aws.StringValue(r.RoleName), err)
+				return nil, ErrCode("failed to get information about current instance profile "+currentInstanceProfileName, err)
 			}
 
-			if attachedRolePoliciesOut.AttachedPolicies == nil {
-				log.Warnf("no attached policies found for current role %s, there may be inline policies", aws.StringValue(r.RoleName))
+			// TODO: we are _not_ considering role inline policies at this point, should we?
+			var currentPoliciesArn []string
+			for _, r := range ipOut.InstanceProfile.Roles {
+				log.Debugf("listing attached policies for role %s", aws.StringValue(r.RoleName))
+
+				var attachedRolePoliciesOut *iam.ListAttachedRolePoliciesOutput
+				attachedRolePoliciesOut, err = s.IAM.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{
+					RoleName: r.RoleName,
+				})
+				if err != nil {
+					return nil, ErrCode("failed to list attached policies for role "+aws.StringValue(r.RoleName), err)
+				}
+
+				if attachedRolePoliciesOut.AttachedPolicies == nil {
+					log.Warnf("no attached policies found for current role %s, there may be inline policies", aws.StringValue(r.RoleName))
+				}
+
+				for _, p := range attachedRolePoliciesOut.AttachedPolicies {
+					currentPoliciesArn = append(currentPoliciesArn, aws.StringValue(p.PolicyArn))
+				}
 			}
 
-			for _, p := range attachedRolePoliciesOut.AttachedPolicies {
-				currentPoliciesArn = append(currentPoliciesArn, aws.StringValue(p.PolicyArn))
+			log.Infof("policies attached to the current instance profile: %s", currentPoliciesArn)
+
+			// attach current policies to our new role
+			for _, p := range currentPoliciesArn {
+				log.Debugf("attaching pre-existing policy %s to role %s", p, roleName)
+
+				_, err = s.IAM.AttachRolePolicyWithContext(ctx, &iam.AttachRolePolicyInput{
+					PolicyArn: aws.String(p),
+					RoleName:  aws.String(roleName),
+				})
+				if err != nil {
+					return nil, ErrCode("failed to attach policy "+p+" to role "+roleName, err)
+				}
 			}
-		}
 
-		log.Infof("policies attached to the current instance profile: %s", currentPoliciesArn)
+			// append policy detach from role to rollback tasks
+			rollBackTasks = append(rollBackTasks, func() error {
+				return func() error {
+					for _, p := range currentPoliciesArn {
+						log.Debugf("DetachRolePolicyWithContext: %s (%s)", p, roleName)
+						err = retry(3, 3*time.Second, func() error {
+							_, err = s.IAM.DetachRolePolicyWithContext(ctx, &iam.DetachRolePolicyInput{
+								PolicyArn: aws.String(p),
+								RoleName:  aws.String(roleName),
+							})
+							if err != nil {
+								log.Debugf("retrying, got error: %s", err)
+								return err
+							}
+							return nil
+						})
+						if err != nil {
+							return err
+						}
+					}
+					return nil
+				}()
+			})
 
-		// attach current policies to our new role
-		for _, p := range currentPoliciesArn {
-			log.Debugf("attaching pre-existing policy %s to role %s", p, roleName)
-
-			_, err = s.IAM.AttachRolePolicyWithContext(ctx, &iam.AttachRolePolicyInput{
-				PolicyArn: aws.String(p),
-				RoleName:  aws.String(roleName),
+			// find out the association id for the currently associated instance profile
+			var ipAssociationsOut *ec2.DescribeIamInstanceProfileAssociationsOutput
+			ipAssociationsOut, err = s.EC2.DescribeIamInstanceProfileAssociationsWithContext(ctx, &ec2.DescribeIamInstanceProfileAssociationsInput{
+				Filters: []*ec2.Filter{
+					{
+						Name:   aws.String("instance-id"),
+						Values: []*string{aws.String(instanceID)},
+					},
+					{
+						Name:   aws.String("state"),
+						Values: []*string{aws.String("associated")},
+					},
+				},
 			})
 			if err != nil {
-				return nil, ErrCode("failed to attach policy "+p+" to role "+roleName, err)
+				return nil, ErrCode("failed to describe instance profile associations for instance "+instanceID, err)
 			}
-		}
 
-		// append policy detach from role to rollback tasks
-		rollBackTasks = append(rollBackTasks, func() error {
-			return func() error {
-				for _, p := range currentPoliciesArn {
-					log.Debugf("DetachRolePolicyWithContext: %s (%s)", p, roleName)
-					err = retry(3, 3*time.Second, func() error {
-						_, err = s.IAM.DetachRolePolicyWithContext(ctx, &iam.DetachRolePolicyInput{
-							PolicyArn: aws.String(p),
-							RoleName:  aws.String(roleName),
+			log.Debugf("got associations: %+v", ipAssociationsOut.IamInstanceProfileAssociations)
+
+			if len(ipAssociationsOut.IamInstanceProfileAssociations) != 1 {
+				return nil, ErrCode("did not find exactly 1 instance profile association for instance "+instanceID, nil)
+			}
+
+			log.Debugf("disassociating association id %s", aws.StringValue(ipAssociationsOut.IamInstanceProfileAssociations[0].AssociationId))
+
+			// retry the instance profile disassociation
+			err = retry(5, 3*time.Second, func() error {
+				_, err = s.EC2.DisassociateIamInstanceProfileWithContext(ctx, &ec2.DisassociateIamInstanceProfileInput{
+					AssociationId: ipAssociationsOut.IamInstanceProfileAssociations[0].AssociationId,
+				})
+				if err != nil {
+					log.Debugf("retrying, got error: %s", err)
+					return err
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, ErrCode("failed to disassociate current instance profile from instance "+instanceID, err)
+			}
+
+			// append original instance profile association to rollback tasks
+			rollBackTasks = append(rollBackTasks, func() error {
+				return func() error {
+					log.Debug("AssociateIamInstanceProfileWithContext")
+					err = retry(5, 3*time.Second, func() error {
+						_, err = s.EC2.AssociateIamInstanceProfileWithContext(ctx, &ec2.AssociateIamInstanceProfileInput{
+							IamInstanceProfile: &ec2.IamInstanceProfileSpecification{
+								Arn: instanceInfo.IamInstanceProfile.Arn,
+							},
+							InstanceId: aws.String(instanceID),
 						})
 						if err != nil {
 							log.Debugf("retrying, got error: %s", err)
@@ -459,41 +568,23 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id, instanceID string) (
 					if err != nil {
 						return err
 					}
-				}
-				return nil
-			}()
-		})
-
-		// find out the association id for the currently associated instance profile
-		var ipAssociationsOut *ec2.DescribeIamInstanceProfileAssociationsOutput
-		ipAssociationsOut, err = s.EC2.DescribeIamInstanceProfileAssociationsWithContext(ctx, &ec2.DescribeIamInstanceProfileAssociationsInput{
-			Filters: []*ec2.Filter{
-				{
-					Name:   aws.String("instance-id"),
-					Values: []*string{aws.String(instanceID)},
-				},
-				{
-					Name:   aws.String("state"),
-					Values: []*string{aws.String("associated")},
-				},
-			},
-		})
-		if err != nil {
-			return nil, ErrCode("failed to describe instance profile associations for instance "+instanceID, err)
+					return nil
+				}()
+			})
 		}
+	}
 
-		log.Debugf("got associations: %+v", ipAssociationsOut.IamInstanceProfileAssociations)
+	// we associate the new instance profile with the instance, unless it's already associated
+	if !instanceRoleAssociated {
+		log.Infof("associating instance profile %s with instance %s", roleName, instanceID)
 
-		if len(ipAssociationsOut.IamInstanceProfileAssociations) != 1 {
-			return nil, ErrCode("did not find exactly 1 instance profile association for instance "+instanceID, nil)
-		}
-
-		log.Debugf("disassociating association id %s", aws.StringValue(ipAssociationsOut.IamInstanceProfileAssociations[0].AssociationId))
-
-		// retry the instance profile disassociation
+		// retry the instance profile association as it takes a while to show up
 		err = retry(5, 3*time.Second, func() error {
-			_, err = s.EC2.DisassociateIamInstanceProfileWithContext(ctx, &ec2.DisassociateIamInstanceProfileInput{
-				AssociationId: ipAssociationsOut.IamInstanceProfileAssociations[0].AssociationId,
+			_, err = s.EC2.AssociateIamInstanceProfileWithContext(ctx, &ec2.AssociateIamInstanceProfileInput{
+				IamInstanceProfile: &ec2.IamInstanceProfileSpecification{
+					Name: aws.String(roleName),
+				},
+				InstanceId: aws.String(instanceID),
 			})
 			if err != nil {
 				log.Debugf("retrying, got error: %s", err)
@@ -502,67 +593,29 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id, instanceID string) (
 			return nil
 		})
 		if err != nil {
-			return nil, ErrCode("failed to disassociate current instance profile from instance "+instanceID, err)
+			return nil, ErrCode("failed to associate instance profile with instance "+instanceID, err)
 		}
 
-		// append original instance profile association to rollback tasks
-		rollBackTasks = append(rollBackTasks, func() error {
-			return func() error {
-				log.Debug("AssociateIamInstanceProfileWithContext")
-				err = retry(5, 3*time.Second, func() error {
-					_, err = s.EC2.AssociateIamInstanceProfileWithContext(ctx, &ec2.AssociateIamInstanceProfileInput{
-						IamInstanceProfile: &ec2.IamInstanceProfileSpecification{
-							Arn: instanceInfo.IamInstanceProfile.Arn,
-						},
-						InstanceId: aws.String(instanceID),
-					})
-					if err != nil {
-						log.Debugf("retrying, got error: %s", err)
-						return err
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-				return nil
-			}()
-		})
+		log.Debugf("associated instance profile %s with instance %s", roleName, instanceID)
 	}
-
-	log.Infof("associating instance profile %s with instance %s", aws.StringValue(instanceProfileOutput.InstanceProfile.InstanceProfileName), instanceID)
-
-	// retry the instance profile association as it takes a while to show up
-	err = retry(5, 3*time.Second, func() error {
-		_, err = s.EC2.AssociateIamInstanceProfileWithContext(ctx, &ec2.AssociateIamInstanceProfileInput{
-			IamInstanceProfile: &ec2.IamInstanceProfileSpecification{
-				Arn: instanceProfileOutput.InstanceProfile.Arn,
-			},
-			InstanceId: aws.String(instanceID),
-		})
-		if err != nil {
-			log.Debugf("retrying, got error: %s", err)
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, ErrCode("failed to associate instance profile with instance "+instanceID, err)
-	}
-
-	log.Debugf("associated instance profile %s with instance %s", roleName, instanceID)
 
 	output := dataset.Access{
-		instanceID: aws.StringValue(instanceProfileOutput.InstanceProfile.Arn),
+		instanceID: roleName,
 	}
 
 	return output, nil
 }
 
-// RevokeAccess removes access to the data repository
-func (s *S3Repository) RevokeAccess(ctx context.Context, id string) error {
+// RevokeAccess revokes instance access from the data repository by
+// removing the dataset access policy from the instance profile (role)
+// Note this will leave the instance role in place, since it may contain other policies
+func (s *S3Repository) RevokeAccess(ctx context.Context, id, instanceID string) error {
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	if instanceID == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty instanceID"))
 	}
 
 	name := id
@@ -570,64 +623,91 @@ func (s *S3Repository) RevokeAccess(ctx context.Context, id string) error {
 		name = s.NamePrefix + "-" + name
 	}
 
-	outputError := false
-	roleName := fmt.Sprintf("roleDataset_%s", id)
+	log.Infof("revoking instance %s access from s3datarepository %s", instanceID, name)
 
-	log.Infof("revoking access to s3datarepository: %s", name)
+	policyName := fmt.Sprintf("policy-%s", name)
 
-	// get list of policies attached to the IAM role for this repository
-	policies, err := s.IAM.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{
-		PathPrefix: aws.String(s.IAMPathPrefix),
-		RoleName:   aws.String(roleName)})
+	policyArn, err := s.getPolicyArn(ctx, policyName)
 	if err != nil {
-		outputError = true
-		log.Warnf("failed to list policies attached to role %s: %s", roleName, err)
+		return ErrCode("failed to get ARN for policy "+policyName, err)
 	}
 
-	// detach and delete all associated policies
-	if policies != nil {
-		for _, p := range policies.AttachedPolicies {
-			if _, err = s.IAM.DetachRolePolicyWithContext(ctx, &iam.DetachRolePolicyInput{
-				PolicyArn: p.PolicyArn,
-				RoleName:  aws.String(roleName),
-			}); err != nil {
-				outputError = true
-				log.Warnf("failed to detach policy %s: %s", aws.StringValue(p.PolicyArn), err)
-			}
+	log.Debugf("getting information about instance %s", instanceID)
 
-			if _, err = s.IAM.DeletePolicyWithContext(ctx, &iam.DeletePolicyInput{PolicyArn: p.PolicyArn}); err != nil {
-				outputError = true
-				log.Warnf("failed to delete policy %s: %s", aws.StringValue(p.PolicyArn), err)
+	// we describe the given instance so we can
+	// 1) make sure it exists, and 2) see if it already has an instance profile association
+	instancesOut, err := s.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
+		InstanceIds: []*string{aws.String(instanceID)},
+	})
+	if err != nil {
+		return ErrCode("failed to get information about instance "+instanceID, err)
+	}
+
+	if len(instancesOut.Reservations) == 0 || len(instancesOut.Reservations[0].Instances) == 0 {
+		return ErrCode("could not find instance "+instanceID, err)
+	}
+
+	if len(instancesOut.Reservations) > 1 || len(instancesOut.Reservations[0].Instances) > 1 {
+		return ErrCode("more than one match found for instance "+instanceID, err)
+	}
+
+	instanceInfo := instancesOut.Reservations[0].Instances[0]
+
+	if instanceInfo.IamInstanceProfile == nil {
+		log.Warnf("instance %s does not have an associated instance profile", instanceID)
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("instance "+instanceID+" does not have access to dataset"))
+	}
+
+	log.Debugf("instance %s has instance profile %s", instanceID, aws.StringValue(instanceInfo.IamInstanceProfile.Arn))
+
+	// we only have the instance profile arn, so let's extract the name
+	ipArns := strings.Split(aws.StringValue(instanceInfo.IamInstanceProfile.Arn), "/")
+	currentInstanceProfileName := ipArns[len(ipArns)-1]
+
+	// find out what role(s) correspond to this instance profile and what policies are attached to them
+	var ipOut *iam.GetInstanceProfileOutput
+	ipOut, err = s.IAM.GetInstanceProfileWithContext(ctx, &iam.GetInstanceProfileInput{
+		InstanceProfileName: aws.String(currentInstanceProfileName),
+	})
+	if err != nil {
+		return ErrCode("failed to get information about current instance profile "+currentInstanceProfileName, err)
+	}
+
+	var policyFound bool
+
+	// find the dataset access policy and detach it from the role
+	for _, r := range ipOut.InstanceProfile.Roles {
+		log.Debugf("listing attached policies for role %s", aws.StringValue(r.RoleName))
+
+		var attachedRolePoliciesOut *iam.ListAttachedRolePoliciesOutput
+		attachedRolePoliciesOut, err = s.IAM.ListAttachedRolePoliciesWithContext(ctx, &iam.ListAttachedRolePoliciesInput{
+			RoleName: r.RoleName,
+		})
+		if err != nil {
+			return ErrCode("failed to list attached policies for role "+aws.StringValue(r.RoleName), err)
+		}
+
+		for _, p := range attachedRolePoliciesOut.AttachedPolicies {
+			if aws.StringValue(p.PolicyArn) == policyArn {
+				policyFound = true
+				log.Debugf("detaching dataset access policy %s from role %s", policyArn, aws.StringValue(r.RoleName))
+
+				_, err = s.IAM.DetachRolePolicyWithContext(ctx, &iam.DetachRolePolicyInput{
+					PolicyArn: p.PolicyArn,
+					RoleName:  r.RoleName,
+				})
+				if err != nil {
+					return ErrCode("failed to detach policy "+aws.StringValue(p.PolicyArn)+" from role "+aws.StringValue(r.RoleName), err)
+				}
+
+				break
 			}
 		}
 	}
 
-	// remove the role from the instance profile
-	_, err = s.IAM.RemoveRoleFromInstanceProfileWithContext(ctx, &iam.RemoveRoleFromInstanceProfileInput{
-		InstanceProfileName: aws.String(roleName),
-		RoleName:            aws.String(roleName),
-	})
-	if err != nil {
-		outputError = true
-		log.Warnf("failed to remove role from instance profile %s: %s", roleName, err)
-	}
-
-	// delete the IAM instance profile (has the same name as the role)
-	_, err = s.IAM.DeleteInstanceProfileWithContext(ctx, &iam.DeleteInstanceProfileInput{InstanceProfileName: aws.String(roleName)})
-	if err != nil {
-		outputError = true
-		log.Warnf("failed to delete instance profile %s: %s", roleName, err)
-	}
-
-	// delete the IAM role
-	_, err = s.IAM.DeleteRoleWithContext(ctx, &iam.DeleteRoleInput{RoleName: aws.String(roleName)})
-	if err != nil {
-		outputError = true
-		log.Warnf("failed to delete role %s: %s", roleName, err)
-	}
-
-	if outputError {
-		return apierror.New(apierror.ErrInternalError, "one or more errors trying to revoke access for data repository "+name, errors.New("revoke access failure"))
+	if !policyFound {
+		log.Warnf("did not find dataset access policy %s in any of the roles associated with this instance %s", policyArn, instanceID)
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("instance "+instanceID+" does not have access to dataset"))
 	}
 
 	return nil
