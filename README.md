@@ -211,10 +211,29 @@ You can then define a list of `accounts` for the actual dataset repositories - t
         },
         {
             "Effect": "Allow",
+            "Action": [
+                "iam:GetInstanceProfile",
+                "iam:ListAttachedRolePolicies",
+                "iam:PassRole"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
             "Action": "s3:*",
             "Resource": [
                 "arn:aws:s3::*:dataset-*"
             ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:AssociateIamInstanceProfile",
+                "ec2:DescribeIamInstanceProfileAssociations",
+                "ec2:DescribeInstances",
+                "ec2:DisassociateIamInstanceProfile"
+            ],
+            "Resource": "*"
         }
     ]
 }

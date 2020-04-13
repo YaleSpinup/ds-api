@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/YaleSpinup/ds-api/apierror"
@@ -13,6 +14,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -29,6 +32,7 @@ type S3RepositoryOption func(*S3Repository)
 type S3Repository struct {
 	NamePrefix    string
 	IAMPathPrefix string
+	EC2           ec2iface.EC2API
 	IAM           iamiface.IAMAPI
 	S3            s3iface.S3API
 	STS           stsiface.STSAPI
@@ -89,6 +93,7 @@ func New(opts ...S3RepositoryOption) (*S3Repository, error) {
 
 	sess := session.Must(session.NewSession(s.config))
 
+	s.EC2 = ec2.New(sess)
 	s.IAM = iam.New(sess)
 	s.S3 = s3.New(sess)
 	s.STS = sts.New(sess)
@@ -396,4 +401,26 @@ func rollBack(t *[]func() error) {
 			log.Errorf("rollback task error: %s, continuing rollback", funcerr)
 		}
 	}
+}
+
+// retry is stolen from https://upgear.io/blog/simple-golang-retry-function/
+func retry(attempts int, sleep time.Duration, f func() error) error {
+	if err := f(); err != nil {
+		if s, ok := err.(stop); ok {
+			// Return the original error for later checking
+			return s.error
+		}
+
+		if attempts--; attempts > 0 {
+			// Add some randomness to prevent creating a Thundering Herd
+			jitter := time.Duration(rand.Int63n(int64(sleep)))
+			sleep = sleep + jitter/2
+
+			time.Sleep(sleep)
+			return retry(attempts, 2*sleep, f)
+		}
+		return err
+	}
+
+	return nil
 }
