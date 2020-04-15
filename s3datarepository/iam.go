@@ -77,6 +77,88 @@ func (s *S3Repository) createPolicy(ctx context.Context, id string, derivative b
 	return nil
 }
 
+// createRole creates a role and instance profile for an instance to access a data set
+// returns a slice of functions to perform rollback of its actions
+func (s *S3Repository) createRole(ctx context.Context, roleName, instanceID string) ([]func() error, error) {
+	var rollBackTasks []func() error
+
+	log.Debugf("creating role %s", roleName)
+
+	roleDoc, err := s.assumeRolePolicy()
+	if err != nil {
+		return rollBackTasks, ErrCode("failed to generate IAM assume role policy", err)
+	}
+
+	var roleOutput *iam.CreateRoleOutput
+	if roleOutput, err = s.IAM.CreateRoleWithContext(ctx, &iam.CreateRoleInput{
+		AssumeRolePolicyDocument: aws.String(string(roleDoc)),
+		Description:              aws.String(fmt.Sprintf("Role for instance %s", instanceID)),
+		Path:                     aws.String(s.IAMPathPrefix),
+		RoleName:                 aws.String(roleName),
+	}); err != nil {
+		return rollBackTasks, ErrCode("failed to create IAM role "+roleName, err)
+	}
+
+	// append role delete to rollback tasks
+	rollBackTasks = append(rollBackTasks, func() error {
+		return func() error {
+			log.Debug("DeleteRoleWithContext")
+			if _, err := s.IAM.DeleteRoleWithContext(ctx, &iam.DeleteRoleInput{RoleName: roleOutput.Role.RoleName}); err != nil {
+				return err
+			}
+			return nil
+		}()
+	})
+
+	log.Debugf("creating instance profile %s", roleName)
+
+	var instanceProfileOutput *iam.CreateInstanceProfileOutput
+	if instanceProfileOutput, err = s.IAM.CreateInstanceProfileWithContext(ctx, &iam.CreateInstanceProfileInput{
+		InstanceProfileName: aws.String(roleName),
+		Path:                aws.String(s.IAMPathPrefix),
+	}); err != nil {
+		return rollBackTasks, ErrCode("failed to create instance profile "+roleName, err)
+	}
+
+	// append instance profile delete to rollback tasks
+	rollBackTasks = append(rollBackTasks, func() error {
+		return func() error {
+			log.Debug("DeleteInstanceProfileWithContext")
+			if _, err := s.IAM.DeleteInstanceProfileWithContext(ctx, &iam.DeleteInstanceProfileInput{InstanceProfileName: aws.String(roleName)}); err != nil {
+				return err
+			}
+			return nil
+		}()
+	})
+
+	log.Debugf("adding role to instance profile %s", roleName)
+
+	if _, err = s.IAM.AddRoleToInstanceProfileWithContext(ctx, &iam.AddRoleToInstanceProfileInput{
+		InstanceProfileName: aws.String(roleName),
+		RoleName:            aws.String(roleName),
+	}); err != nil {
+		return rollBackTasks, ErrCode("failed to add role to instance profile "+roleName, err)
+	}
+
+	// append role removal from instance profile to rollback tasks
+	rollBackTasks = append(rollBackTasks, func() error {
+		return func() error {
+			log.Debug("RemoveRoleFromInstanceProfileWithContext")
+			if _, err := s.IAM.RemoveRoleFromInstanceProfileWithContext(ctx, &iam.RemoveRoleFromInstanceProfileInput{
+				InstanceProfileName: aws.String(roleName),
+				RoleName:            aws.String(roleName),
+			}); err != nil {
+				return err
+			}
+			return nil
+		}()
+	})
+
+	log.Debugf("created instance profile: %s", aws.StringValue(instanceProfileOutput.InstanceProfile.Arn))
+
+	return rollBackTasks, nil
+}
+
 // deletePolicy deletes the access policy for the given data repository
 func (s *S3Repository) deletePolicy(ctx context.Context, id string) error {
 	if id == "" {
@@ -295,7 +377,6 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id, instanceID string) (
 	// it is equivalent to the instance profile name
 	roleName := fmt.Sprintf("instanceRole_%s", instanceID)
 
-	// check if role for this instance already exists and create it if it doesn't
 	roleExists := true
 	if _, err = s.IAM.GetRole(&iam.GetRoleInput{RoleName: aws.String(roleName)}); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -312,84 +393,16 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id, instanceID string) (
 		log.Debugf("role %s already exists", roleName)
 	}
 
-	// if there's no exsiting role for this instance we'll create one and associate it with an
+	// if there's no existing role for this instance we'll create one and associate it with an
 	// instance profile with the same name
 	// we also assume that if the role exists, its corresponding instance profile already exists,
 	// which will be true unless manually modified outside of this api
 	if !roleExists {
-		log.Debugf("creating role %s", roleName)
-
-		roleDoc, err := s.assumeRolePolicy()
+		createRoleRollback, err := s.createRole(ctx, roleName, instanceID)
+		rollBackTasks = append(rollBackTasks, createRoleRollback...)
 		if err != nil {
-			return nil, ErrCode("failed to generate IAM assume role policy for bucket "+name, err)
+			return nil, err
 		}
-
-		var roleOutput *iam.CreateRoleOutput
-		if roleOutput, err = s.IAM.CreateRoleWithContext(ctx, &iam.CreateRoleInput{
-			AssumeRolePolicyDocument: aws.String(string(roleDoc)),
-			Description:              aws.String(fmt.Sprintf("Role for instance %s", instanceID)),
-			Path:                     aws.String(s.IAMPathPrefix),
-			RoleName:                 aws.String(roleName),
-		}); err != nil {
-			return nil, ErrCode("failed to create IAM role "+roleName, err)
-		}
-
-		// append role delete to rollback tasks
-		rollBackTasks = append(rollBackTasks, func() error {
-			return func() error {
-				log.Debug("DeleteRoleWithContext")
-				if _, err := s.IAM.DeleteRoleWithContext(ctx, &iam.DeleteRoleInput{RoleName: roleOutput.Role.RoleName}); err != nil {
-					return err
-				}
-				return nil
-			}()
-		})
-
-		log.Debugf("creating instance profile %s", roleName)
-
-		var instanceProfileOutput *iam.CreateInstanceProfileOutput
-		if instanceProfileOutput, err = s.IAM.CreateInstanceProfileWithContext(ctx, &iam.CreateInstanceProfileInput{
-			InstanceProfileName: aws.String(roleName),
-			Path:                aws.String(s.IAMPathPrefix),
-		}); err != nil {
-			return nil, ErrCode("failed to create instance profile "+roleName, err)
-		}
-
-		// append instance profile delete to rollback tasks
-		rollBackTasks = append(rollBackTasks, func() error {
-			return func() error {
-				log.Debug("DeleteInstanceProfileWithContext")
-				if _, err := s.IAM.DeleteInstanceProfileWithContext(ctx, &iam.DeleteInstanceProfileInput{InstanceProfileName: aws.String(roleName)}); err != nil {
-					return err
-				}
-				return nil
-			}()
-		})
-
-		// add role to instance profile
-		_, err = s.IAM.AddRoleToInstanceProfileWithContext(ctx, &iam.AddRoleToInstanceProfileInput{
-			InstanceProfileName: aws.String(roleName),
-			RoleName:            aws.String(roleName),
-		})
-		if err != nil {
-			return nil, ErrCode("failed to add role to instance profile "+roleName, err)
-		}
-
-		// append role removal from instance profile to rollback tasks
-		rollBackTasks = append(rollBackTasks, func() error {
-			return func() error {
-				log.Debug("RemoveRoleFromInstanceProfileWithContext")
-				if _, err := s.IAM.RemoveRoleFromInstanceProfileWithContext(ctx, &iam.RemoveRoleFromInstanceProfileInput{
-					InstanceProfileName: aws.String(roleName),
-					RoleName:            aws.String(roleName),
-				}); err != nil {
-					return err
-				}
-				return nil
-			}()
-		})
-
-		log.Debugf("created instance profile: %s", aws.StringValue(instanceProfileOutput.InstanceProfile.InstanceProfileName))
 	}
 
 	log.Debugf("attaching policy %s to role %s", policyArn, roleName)
