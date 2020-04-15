@@ -15,9 +15,9 @@ POST /v1/ds/{account}/datasets
 GET /v1/ds/{account}/datasets/{id}
 DELETE /v1/ds/{account}/datasets/{id}
 
-GET /v1/ds/{account}/datasets/{id}/servers
-POST /v1/ds/{account}/datasets/{id}/servers
-DELETE /v1/ds/{account}/datasets/{id}/servers/{instance_id}
+GET /v1/ds/{account}/datasets/{id}/instances
+POST /v1/ds/{account}/datasets/{id}/instances
+DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
 ```
 
 ## Usage
@@ -172,9 +172,9 @@ DELETE /v1/ds/{account}/datasets/{id}
 | **500 Internal Server Error** | a server error occurred              |
 
 
-### List all servers that have access to a dataset
+### List all instances that have access to a dataset
 
-GET /v1/ds/{account}/datasets/{id}/servers
+GET /v1/ds/{account}/datasets/{id}/instances
 
 ```json
 {
@@ -189,12 +189,12 @@ GET /v1/ds/{account}/datasets/{id}/servers
 | ----------------------------- | -------------------------------------|
 | **200 OK**                    | okay                                 |
 | **400 Bad Request**           | badly formed request                 |
-| **404 Not Found**             | dataset not found                    |
+| **404 Not Found**             | account/dataset not found            |
 | **500 Internal Server Error** | a server error occurred              |
 
-### Grant dataset access to a server
+### Grant dataset access to an instance
 
-POST /v1/ds/{account}/datasets/{id}/servers
+POST /v1/ds/{account}/datasets/{id}/instances
 
 ```json
 {
@@ -215,22 +215,21 @@ POST /v1/ds/{account}/datasets/{id}/servers
 
 | Response Code                 | Definition                           |
 | ----------------------------- | -------------------------------------|
-| **200 OK**                    | server access granted                |
+| **200 OK**                    | instance access granted              |
 | **400 Bad Request**           | badly formed request                 |
-| **404 Not Found**             | account not found                    |
-| **409 Conflict**              | server already has access to dataset |
+| **404 Not Found**             | account/dataset not found            |
 | **500 Internal Server Error** | a server error occurred              |
 
-### Revoke dataset access from a server
+### Revoke dataset access from an instance
 
-DELETE /v1/ds/{account}/datasets/{id}/servers/{instance_id}
+DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
 
-| Response Code                 | Definition                                 |
-| ----------------------------- | -------------------------------------------|
-| **204 OK**                    | okay                                       |
-| **400 Bad Request**           | bad request, or server doesn't have access |
-| **404 Not Found**             | dataset not found                          |
-| **500 Internal Server Error** | a server error occurred                    |
+| Response Code                 | Definition                                   |
+| ----------------------------- | ---------------------------------------------|
+| **204 OK**                    | instance access revoked                      |
+| **400 Bad Request**           | bad request, or instance doesn't have access |
+| **404 Not Found**             | account/dataset not found                    |
+| **500 Internal Server Error** | a server error occurred                      |
 
 
 ## Authentication

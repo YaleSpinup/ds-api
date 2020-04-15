@@ -11,8 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// ServerCreateHandler provisions access to a "dataset" for a given server
-func (s *server) ServerCreateHandler(w http.ResponseWriter, r *http.Request) {
+// InstanceCreateHandler provisions access to a "dataset" for a given instance
+func (s *server) InstanceCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
@@ -31,7 +31,7 @@ func (s *server) ServerCreateHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
-		msg := fmt.Sprintf("cannot decode body into create server input: %s", err)
+		msg := fmt.Sprintf("cannot decode body into create instance input: %s", err)
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
 		return
 	}
@@ -41,33 +41,18 @@ func (s *server) ServerCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infof("provisioning access to data set '%s' in account '%s' for server: %s", id, account, input.InstanceID)
+	log.Infof("provisioning access to data set '%s' in account '%s' for instance: %s", id, account, input.InstanceID)
 
-	metadataOutput, err := service.MetadataRepository.Get(r.Context(), account, id)
+	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	dataRepo, ok := service.DataRepository[metadataOutput.DataStorage]
+	dataRepo, ok := service.DataRepository[metadata.DataStorage]
 	if !ok {
-		msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadataOutput.DataStorage)
+		msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadata.DataStorage)
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
-		return
-	}
-
-	// list current access to this data repository
-	listAccess, err := dataRepo.ListAccess(r.Context(), id)
-	if err != nil {
-		msg := fmt.Sprintf("failed to list access to data repository for dataset %s: %s", id, err)
-		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
-		return
-	}
-
-	// check if requested server already has access
-	if _, found := listAccess[input.InstanceID]; found {
-		msg := fmt.Sprintf("instance %s already has access to data repository for dataset %s", input.InstanceID, id)
-		handleError(w, apierror.New(apierror.ErrConflict, msg, nil))
 		return
 	}
 
@@ -99,8 +84,8 @@ func (s *server) ServerCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
-// ServerListHandler lists all servers that have access to the dataset
-func (s *server) ServerListHandler(w http.ResponseWriter, r *http.Request) {
+// InstanceListHandler lists all instances that have access to the dataset
+func (s *server) InstanceListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
@@ -113,17 +98,17 @@ func (s *server) ServerListHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("listing servers with access to data set '%s' in account %s", id, account)
+	log.Debugf("listing instances with access to data set '%s' in account %s", id, account)
 
-	metadataOutput, err := service.MetadataRepository.Get(r.Context(), account, id)
+	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	dataRepo, ok := service.DataRepository[metadataOutput.DataStorage]
+	dataRepo, ok := service.DataRepository[metadata.DataStorage]
 	if !ok {
-		msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadataOutput.DataStorage)
+		msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadata.DataStorage)
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
 		return
 	}
@@ -156,8 +141,8 @@ func (s *server) ServerListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
-// ServerDeleteHandler
-func (s *server) ServerDeleteHandler(w http.ResponseWriter, r *http.Request) {
+// InstanceDeleteHandler removes access to a "dataset" for a given instance
+func (s *server) InstanceDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
@@ -171,17 +156,17 @@ func (s *server) ServerDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Infof("revoking access to data set '%s' in account %s for server: %s", id, account, instanceID)
+	log.Infof("revoking access to data set '%s' in account %s for instance: %s", id, account, instanceID)
 
-	metadataOutput, err := service.MetadataRepository.Get(r.Context(), account, id)
+	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	dataRepo, ok := service.DataRepository[metadataOutput.DataStorage]
+	dataRepo, ok := service.DataRepository[metadata.DataStorage]
 	if !ok {
-		msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadataOutput.DataStorage)
+		msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadata.DataStorage)
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
 		return
 	}
@@ -194,8 +179,8 @@ func (s *server) ServerDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// check if requested server currently has access
-	if _, found := listAccess[instanceID]; !found {
+	// check if requested instance currently has access
+	if _, ok := listAccess[instanceID]; !ok {
 		msg := fmt.Sprintf("instance %s currently does not have access to data repository for dataset %s", instanceID, id)
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
 		return
