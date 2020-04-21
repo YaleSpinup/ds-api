@@ -283,7 +283,7 @@ func (s *S3Repository) ListAccess(ctx context.Context, id string) (dataset.Acces
 
 		log.Debugf("listing instances with instance profile: %s", strings.Join(instanceProfileName, ","))
 
-		instancesOut, err := s.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
+		instancesOut, err := s.EC2.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
 			Filters: []*ec2.Filter{
 				{
 					Name:   aws.String("iam-instance-profile.arn"),
@@ -347,7 +347,7 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id, instanceID string) (
 
 	// we describe the given instance so we can
 	// 1) make sure it exists, and 2) see if it already has an instance profile association
-	instancesOut, err := s.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
+	instancesOut, err := s.EC2.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	})
 	if err != nil {
@@ -378,7 +378,7 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id, instanceID string) (
 	roleName := fmt.Sprintf("instanceRole_%s", instanceID)
 
 	roleExists := true
-	if _, err = s.IAM.GetRole(&iam.GetRoleInput{RoleName: aws.String(roleName)}); err != nil {
+	if _, err = s.IAM.GetRoleWithContext(ctx, &iam.GetRoleInput{RoleName: aws.String(roleName)}); err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			if aerr.Code() == iam.ErrCodeNoSuchEntityException {
 				roleExists = false
@@ -641,7 +641,7 @@ func (s *S3Repository) RevokeAccess(ctx context.Context, id, instanceID string) 
 
 	// we describe the given instance so we can
 	// 1) make sure it exists, and 2) see if it already has an instance profile association
-	instancesOut, err := s.EC2.DescribeInstances(&ec2.DescribeInstancesInput{
+	instancesOut, err := s.EC2.DescribeInstancesWithContext(ctx, &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{aws.String(instanceID)},
 	})
 	if err != nil {
