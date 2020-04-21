@@ -14,6 +14,10 @@ GET /v1/ds/metrics
 POST /v1/ds/{account}/datasets
 GET /v1/ds/{account}/datasets/{id}
 DELETE /v1/ds/{account}/datasets/{id}
+
+GET /v1/ds/{account}/datasets/{id}/instances
+POST /v1/ds/{account}/datasets/{id}/instances
+DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
 ```
 
 ## Usage
@@ -168,6 +172,66 @@ DELETE /v1/ds/{account}/datasets/{id}
 | **500 Internal Server Error** | a server error occurred              |
 
 
+### List all instances that have access to a dataset
+
+GET /v1/ds/{account}/datasets/{id}/instances
+
+```json
+{
+    "id": "95db5a7b-466b-4aa7-bbe1-1e23ed860f32",
+    "access": {
+        "i-01f9bfb7ee683e807": "instanceRole_i-01f9bfb7ee683e807"
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | okay                                 |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | account/dataset not found            |
+| **500 Internal Server Error** | a server error occurred              |
+
+### Grant dataset access to an instance
+
+POST /v1/ds/{account}/datasets/{id}/instances
+
+```json
+{
+	"instance_id": "i-01f9bfb7ee683e807"
+}
+```
+
+#### Response
+
+```json
+{
+    "id": "95db5a7b-466b-4aa7-bbe1-1e23ed860f32",
+    "access": {
+        "i-01f9bfb7ee683e807": "instanceRole_i-01f9bfb7ee683e807"
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | instance access granted              |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | account/dataset not found            |
+| **500 Internal Server Error** | a server error occurred              |
+
+### Revoke dataset access from an instance
+
+DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
+
+| Response Code                 | Definition                                   |
+| ----------------------------- | ---------------------------------------------|
+| **204 OK**                    | instance access revoked                      |
+| **400 Bad Request**           | bad request, or instance doesn't have access |
+| **404 Not Found**             | account/dataset not found                    |
+| **500 Internal Server Error** | a server error occurred                      |
+
+
 ## Authentication
 
 Authentication is accomplished using a pre-shared key via the `X-Auth-Token` header.
@@ -211,10 +275,30 @@ You can then define a list of `accounts` for the actual dataset repositories - t
         },
         {
             "Effect": "Allow",
+            "Action": [
+                "iam:GetRole",
+                "iam:GetInstanceProfile",
+                "iam:ListAttachedRolePolicies",
+                "iam:PassRole"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
             "Action": "s3:*",
             "Resource": [
                 "arn:aws:s3::*:dataset-*"
             ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:AssociateIamInstanceProfile",
+                "ec2:DescribeIamInstanceProfileAssociations",
+                "ec2:DescribeInstances",
+                "ec2:DisassociateIamInstanceProfile"
+            ],
+            "Resource": "*"
         }
     ]
 }

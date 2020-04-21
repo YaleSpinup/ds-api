@@ -18,4 +18,7 @@ func (s *server) routes() {
 	api.HandleFunc("/{account}/datasets/{id}", s.DatasetUpdateHandler).Methods(http.MethodPut)
 	api.HandleFunc("/{account}/datasets/{id}", s.DatasetDeleteHandler).Methods(http.MethodDelete)
 
+	api.HandleFunc("/{account}/datasets/{id}/instances", s.InstanceListHandler).Methods(http.MethodGet)
+	api.HandleFunc("/{account}/datasets/{id}/instances", s.InstanceCreateHandler).Methods(http.MethodPost)
+	api.HandleFunc("/{account}/datasets/{id}/instances/{instance_id}", s.InstanceDeleteHandler).Methods(http.MethodDelete)
 }
