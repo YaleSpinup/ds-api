@@ -363,8 +363,8 @@ func (i *mockIAMClient) ListAttachedRolePoliciesWithContext(ctx context.Context,
 		output = &iam.ListAttachedRolePoliciesOutput{
 			AttachedPolicies: []*iam.AttachedPolicy{
 				&iam.AttachedPolicy{
-					PolicyArn:  aws.String("arn:aws:iam::12345678901:policy/test/policy-dataset-BF155F4A-A464-4D4D-A948-BF1E1E882C6F"),
-					PolicyName: aws.String("policy-dataset-BF155F4A-A464-4D4D-A948-BF1E1E882C6F"),
+					PolicyArn:  aws.String("arn:aws:iam::12345678901:policy/test/dataset-BF155F4A-A464-4D4D-A948-BF1E1E882C6F"),
+					PolicyName: aws.String("dataset-BF155F4A-A464-4D4D-A948-BF1E1E882C6F"),
 				},
 			},
 		}
@@ -665,7 +665,7 @@ func TestGrantAccess(t *testing.T) {
 	s = newTestS3Repository(t)
 	instanceID = "i-0123456789abcdef1"
 	expectedCode = apierror.ErrServiceUnavailable
-	expectedMessage = fmt.Sprintf("failed to attach policy arn:aws:iam::12345678901:policy/test/policy-dataset-%s to role instanceRole_%s", id, instanceID)
+	expectedMessage = fmt.Sprintf("failed to attach policy arn:aws:iam::12345678901:policy/test/dataset-%s to role instanceRole_%s", id, instanceID)
 	s.IAM.(*mockIAMClient).err["AttachRolePolicyWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	_, err = s.GrantAccess(context.TODO(), id, instanceID)
@@ -734,7 +734,7 @@ func TestGrantAccess(t *testing.T) {
 	s = newTestS3Repository(t)
 	instanceID = "i-0123456789abcdef2"
 	expectedCode = apierror.ErrServiceUnavailable
-	expectedMessage = fmt.Sprintf("failed to attach policy arn:aws:iam::12345678901:policy/test/policy-dataset-%s to role instanceRole_%s", id, instanceID)
+	expectedMessage = fmt.Sprintf("failed to attach policy arn:aws:iam::12345678901:policy/test/dataset-%s to role instanceRole_%s", id, instanceID)
 	s.IAM.(*mockIAMClient).err["AttachRolePolicyWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	_, err = s.GrantAccess(context.TODO(), id, instanceID)
@@ -830,7 +830,7 @@ func TestListAccess(t *testing.T) {
 	// test ListEntitiesForPolicyWithContext failure
 	s = newTestS3Repository(t)
 	expectedCode = apierror.ErrServiceUnavailable
-	expectedMessage = fmt.Sprintf("failed to list entities for policy arn:aws:iam::12345678901:policy/test/policy-dataset-%s", id)
+	expectedMessage = fmt.Sprintf("failed to list entities for policy arn:aws:iam::12345678901:policy/test/dataset-%s", id)
 	s.IAM.(*mockIAMClient).err["ListEntitiesForPolicyWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	_, err = s.ListAccess(context.TODO(), id)
@@ -1055,7 +1055,7 @@ func TestRevokeAccess(t *testing.T) {
 	s = newTestS3Repository(t)
 	instanceID = "i-0123456789abcdef3"
 	expectedCode = apierror.ErrServiceUnavailable
-	expectedMessage = fmt.Sprintf("failed to detach policy arn:aws:iam::12345678901:policy/test/policy-dataset-%s from role instanceRole_%s", id, instanceID)
+	expectedMessage = fmt.Sprintf("failed to detach policy arn:aws:iam::12345678901:policy/test/dataset-%s from role instanceRole_%s", id, instanceID)
 	s.IAM.(*mockIAMClient).err["DetachRolePolicyWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	err = s.RevokeAccess(context.TODO(), id, instanceID)

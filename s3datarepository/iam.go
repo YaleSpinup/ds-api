@@ -43,7 +43,7 @@ func (s *S3Repository) createPolicy(ctx context.Context, id string, derivative b
 		name = s.NamePrefix + "-" + name
 	}
 
-	policyName := fmt.Sprintf("policy-%s", name)
+	policyName := name
 
 	var policyDoc []byte
 	var err error
@@ -170,7 +170,7 @@ func (s *S3Repository) deletePolicy(ctx context.Context, id string) error {
 		name = s.NamePrefix + "-" + name
 	}
 
-	policyName := fmt.Sprintf("policy-%s", name)
+	policyName := name
 
 	policyArn, err := s.getPolicyArn(ctx, policyName)
 	if err != nil {
@@ -230,7 +230,7 @@ func (s *S3Repository) ListAccess(ctx context.Context, id string) (dataset.Acces
 
 	log.Infof("listing instances with access to s3datarepository %s", name)
 
-	policyName := fmt.Sprintf("policy-%s", name)
+	policyName := name
 
 	policyArn, err := s.getPolicyArn(ctx, policyName)
 	if err != nil {
@@ -336,7 +336,7 @@ func (s *S3Repository) GrantAccess(ctx context.Context, id, instanceID string) (
 
 	log.Infof("granting instance %s access to s3datarepository %s", instanceID, name)
 
-	policyName := fmt.Sprintf("policy-%s", name)
+	policyName := name
 
 	policyArn, err := s.getPolicyArn(ctx, policyName)
 	if err != nil {
@@ -630,7 +630,7 @@ func (s *S3Repository) RevokeAccess(ctx context.Context, id, instanceID string) 
 
 	log.Infof("revoking instance %s access from s3datarepository %s", instanceID, name)
 
-	policyName := fmt.Sprintf("policy-%s", name)
+	policyName := name
 
 	policyArn, err := s.getPolicyArn(ctx, policyName)
 	if err != nil {
