@@ -177,8 +177,40 @@ func (s *S3Repository) deletePolicy(ctx context.Context, id string) error {
 		return ErrCode("failed to get ARN for policy "+policyName, err)
 	}
 
-	// TODO: check if policy is used anywhere before deleting
+	// check if this policy is used anywhere and detach it before deleting
 
+	log.Debugf("listing roles with policy %s", policyArn)
+
+	// find out what entities the policy is attached to
+	// TODO: right now we only check roles, but may need to handle groups/users eventually
+	entitiesOut, err := s.IAM.ListEntitiesForPolicyWithContext(ctx, &iam.ListEntitiesForPolicyInput{
+		EntityFilter:      aws.String("Role"),
+		PathPrefix:        aws.String(s.IAMPathPrefix),
+		PolicyArn:         aws.String(policyArn),
+		PolicyUsageFilter: aws.String("PermissionsPolicy"),
+	})
+	if err != nil {
+		log.Warnf("failed to list entities for policy "+policyArn, err)
+	}
+
+	if entitiesOut != nil {
+		log.Debug(entitiesOut.PolicyRoles)
+		if len(entitiesOut.PolicyRoles) == 0 {
+			log.Debugf("policy %s is not attached to any roles", policyName)
+		}
+
+		for _, r := range entitiesOut.PolicyRoles {
+			log.Debugf("detaching dataset access policy %s from role %s", policyArn, aws.StringValue(r.RoleName))
+			if _, err = s.IAM.DetachRolePolicyWithContext(ctx, &iam.DetachRolePolicyInput{
+				PolicyArn: aws.String(policyArn),
+				RoleName:  r.RoleName,
+			}); err != nil {
+				log.Warnf("failed to detach policy "+policyArn+" from role "+aws.StringValue(r.RoleName), err)
+			}
+		}
+	}
+
+	// delete the policy
 	if _, err = s.IAM.DeletePolicyWithContext(ctx, &iam.DeletePolicyInput{PolicyArn: aws.String(policyArn)}); err != nil {
 		return ErrCode("failed to delete policy "+policyArn, err)
 	}
