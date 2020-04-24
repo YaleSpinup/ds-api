@@ -194,10 +194,7 @@ func (s *S3Repository) deletePolicy(ctx context.Context, id string) error {
 	}
 
 	if entitiesOut != nil {
-		log.Debug(entitiesOut.PolicyRoles)
-		if len(entitiesOut.PolicyRoles) == 0 {
-			log.Debugf("policy %s is not attached to any roles", policyName)
-		}
+		log.Debugf("policy %s is attached to %d roles", policyName, len(entitiesOut.PolicyRoles))
 
 		for _, r := range entitiesOut.PolicyRoles {
 			log.Debugf("detaching dataset access policy %s from role %s", policyArn, aws.StringValue(r.RoleName))
