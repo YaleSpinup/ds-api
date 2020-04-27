@@ -33,9 +33,10 @@ func (s *S3Repository) ListUsers(ctx context.Context, id string) (map[string]int
 
 	output := make(map[string]interface{}, len(usersOutput))
 	for _, u := range usersOutput {
+		userName := aws.StringValue(u.UserName)
 		keyOut, err := s.IAM.ListAccessKeysWithContext(ctx, &iam.ListAccessKeysInput{UserName: u.UserName})
 		if err != nil {
-			return nil, ErrCode("failed to getting access keys for user "+aws.StringValue(u.UserName), err)
+			return nil, ErrCode("failed to getting access keys for user "+userName, err)
 		}
 
 		keys := make(map[string]string, len(keyOut.AccessKeyMetadata))
@@ -43,7 +44,7 @@ func (s *S3Repository) ListUsers(ctx context.Context, id string) (map[string]int
 			keys[aws.StringValue(k.AccessKeyId)] = aws.StringValue(k.Status)
 		}
 
-		output[*u.UserName] = struct {
+		output[userName] = struct {
 			Keys map[string]string `json:"keys"`
 		}{keys}
 	}
@@ -113,7 +114,6 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 		PolicyDocument: aws.String(string(policyDoc)),
 		PolicyName:     aws.String(name + "-DsTmpPlc"),
 	})
-
 	if err != nil {
 		return nil, ErrCode("create temporary access policy for dataset "+id, err)
 	}
