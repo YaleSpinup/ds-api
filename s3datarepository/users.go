@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ListUsers lists the users of a dataset with their key ids
 func (s *S3Repository) ListUsers(ctx context.Context, id string) (map[string]interface{}, error) {
 	if id == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
@@ -80,6 +81,13 @@ func (s *S3Repository) listGroupsUsers(ctx context.Context, groupName string) ([
 	return users, nil
 }
 
+// CreateUser creates a dataset user.
+// - generates and creates the temporary access policy
+// - create the temporary access group
+// - attach the created policy to the created group
+// - create the temporary user
+// - create a set of access keys
+// - add the user to the group
 func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, error) {
 	if id == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
@@ -118,10 +126,6 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 		return nil, ErrCode("create temporary access policy for dataset "+id, err)
 	}
 
-	if err := s.IAM.WaitUntilPolicyExistsWithContext(ctx, &iam.GetPolicyInput{PolicyArn: policyOutput.Policy.Arn}); err != nil {
-		return nil, ErrCode("waiting for temporary access policy to exist for dataset "+id, err)
-	}
-
 	// append policy delete to rollback tasks
 	rollBackTasks = append(rollBackTasks, func() error {
 		return func() error {
@@ -131,6 +135,10 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 			return nil
 		}()
 	})
+
+	if err := s.IAM.WaitUntilPolicyExistsWithContext(ctx, &iam.GetPolicyInput{PolicyArn: policyOutput.Policy.Arn}); err != nil {
+		return nil, ErrCode("waiting for temporary access policy to exist for dataset "+id, err)
+	}
 
 	log.Debugf("got iam create policy response %+v", policyOutput)
 
@@ -184,10 +192,6 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 		return nil, ErrCode("create user for dataset "+id, err)
 	}
 
-	if err := s.IAM.WaitUntilUserExistsWithContext(ctx, &iam.GetUserInput{UserName: aws.String(userName)}); err != nil {
-		return nil, ErrCode("waiting for user to exist for dataset "+id, err)
-	}
-
 	// append user delete to rollback tasks
 	rollBackTasks = append(rollBackTasks, func() error {
 		return func() error {
@@ -199,6 +203,10 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 			return nil
 		}()
 	})
+
+	if err := s.IAM.WaitUntilUserExistsWithContext(ctx, &iam.GetUserInput{UserName: aws.String(userName)}); err != nil {
+		return nil, ErrCode("waiting for user to exist for dataset "+id, err)
+	}
 
 	log.Debugf("got iam create user response %+v", userOutput)
 
@@ -249,6 +257,13 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 	return output, nil
 }
 
+// DeleteUser cleans up a dataset user.
+//  - gets the group we manage
+//  - detaches any policies from the group
+//  - delete the policy we manage
+//  - remove all of the users from the group
+//  - deletes the credentials and the user we manage
+//  - deletes the group
 func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
