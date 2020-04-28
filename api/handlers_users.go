@@ -26,6 +26,7 @@ func (s *server) UserListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Debugf("listing users of dataset '%s' in account %s", id, account)
+
 	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
 	if err != nil {
 		handleError(w, err)
@@ -42,8 +43,17 @@ func (s *server) UserListHandler(w http.ResponseWriter, r *http.Request) {
 	// list users of this data repository
 	datasetUsers, err := dataRepo.ListUsers(r.Context(), id)
 	if err != nil {
-		handleError(w, errors.Wrapf(err, "list users of data repository for dataset %s", id))
-		return
+		// AWS returns a Forbidden code when getting a group that doesn't exist.  The alternative is to list *all*
+		// of the groups in the prefix and see if the group exists first, but that seems slow and expensive.  We could
+		// reverse the paradigm and list the groups for the expected user, but that will limit us if we support more
+		// than one user later.  This seems like the best compromise since 1) we should never get Forbidden unless *we*
+		// make a mistake. 2) we control the name of the group/user, etc.
+		aerr, ok := errors.Cause(err).(apierror.Error)
+		if !ok || aerr.Code != apierror.ErrForbidden {
+			handleError(w, errors.Wrapf(err, "list users of data repository for dataset %s", id))
+			return
+		}
+		datasetUsers = make(map[string]interface{})
 	}
 
 	j, err := json.Marshal(datasetUsers)
@@ -134,6 +144,7 @@ func (s *server) UserDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// This will return a "Forbidden" response if the group/user doesn't exist (bubbles up from AWS)
 	err = dataRepo.DeleteUser(r.Context(), id)
 	if err != nil {
 		handleError(w, errors.Wrapf(err, "delete user of data repository for dataset %s", id))
