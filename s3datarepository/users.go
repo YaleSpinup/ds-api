@@ -100,7 +100,7 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 
 	log.Infof("creating user of the s3datarepository %s", name)
 
-	policyDoc, err := s.temporaryAccessPolicy(id)
+	policyDoc, err := s.temporaryAccessPolicy(name)
 	if err != nil {
 		return nil, ErrCode("generate temporary access policy for dataset "+id, err)
 	}
