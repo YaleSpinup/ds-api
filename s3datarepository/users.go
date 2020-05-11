@@ -37,7 +37,7 @@ func (s *S3Repository) ListUsers(ctx context.Context, id string) (map[string]int
 		userName := aws.StringValue(u.UserName)
 		keyOut, err := s.IAM.ListAccessKeysWithContext(ctx, &iam.ListAccessKeysInput{UserName: u.UserName})
 		if err != nil {
-			return nil, ErrCode("failed to getting access keys for user "+userName, err)
+			return nil, ErrCode("failed getting access keys for user "+userName, err)
 		}
 
 		keys := make(map[string]string, len(keyOut.AccessKeyMetadata))
@@ -70,7 +70,7 @@ func (s *S3Repository) listGroupsUsers(ctx context.Context, groupName string) ([
 	for truncated {
 		output, err := s.IAM.GetGroupWithContext(ctx, input)
 		if err != nil {
-			return users, ErrCode("failed to getting users for group "+groupName, err)
+			return users, ErrCode("failed getting users for group "+groupName, err)
 		}
 
 		truncated = aws.BoolValue(output.IsTruncated)
