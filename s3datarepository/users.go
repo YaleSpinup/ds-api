@@ -37,7 +37,7 @@ func (s *S3Repository) ListUsers(ctx context.Context, id string) (map[string]int
 		userName := aws.StringValue(u.UserName)
 		keyOut, err := s.IAM.ListAccessKeysWithContext(ctx, &iam.ListAccessKeysInput{UserName: u.UserName})
 		if err != nil {
-			return nil, ErrCode("failed getting access keys for user "+userName, err)
+			return nil, ErrCode("failed to get access keys for user "+userName, err)
 		}
 
 		keys := make(map[string]string, len(keyOut.AccessKeyMetadata))
@@ -70,7 +70,7 @@ func (s *S3Repository) listGroupsUsers(ctx context.Context, groupName string) ([
 	for truncated {
 		output, err := s.IAM.GetGroupWithContext(ctx, input)
 		if err != nil {
-			return users, ErrCode("failed getting users for group "+groupName, err)
+			return users, ErrCode("failed to get users for group "+groupName, err)
 		}
 
 		truncated = aws.BoolValue(output.IsTruncated)
@@ -123,7 +123,7 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 		PolicyName:     aws.String(name + "-DsTmpPlc"),
 	})
 	if err != nil {
-		return nil, ErrCode("create temporary access policy for dataset "+id, err)
+		return nil, ErrCode("failed to create temporary access policy for dataset "+id, err)
 	}
 
 	// append policy delete to rollback tasks
@@ -137,7 +137,7 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 	})
 
 	if err := s.IAM.WaitUntilPolicyExistsWithContext(ctx, &iam.GetPolicyInput{PolicyArn: policyOutput.Policy.Arn}); err != nil {
-		return nil, ErrCode("waiting for temporary access policy to exist for dataset "+id, err)
+		return nil, ErrCode("failed waiting for temporary access policy to exist for dataset "+id, err)
 	}
 
 	log.Debugf("got iam create policy response %+v", policyOutput)
@@ -148,7 +148,7 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 		Path:      aws.String(s.IAMPathPrefix),
 	})
 	if err != nil {
-		return nil, ErrCode("create group for dataset "+id, err)
+		return nil, ErrCode("failed to create group for dataset "+id, err)
 	}
 
 	// append group delete to rollback tasks
@@ -167,7 +167,7 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 		GroupName: aws.String(groupName),
 		PolicyArn: policyOutput.Policy.Arn,
 	}); err != nil {
-		return nil, ErrCode("attach policy to group for dataset "+id, err)
+		return nil, ErrCode("failed to attach policy to group for dataset "+id, err)
 	}
 
 	// append policy detach to rollback tasks
@@ -189,7 +189,7 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 		UserName: aws.String(userName),
 	})
 	if err != nil {
-		return nil, ErrCode("create user for dataset "+id, err)
+		return nil, ErrCode("failed to create user for dataset "+id, err)
 	}
 
 	// append user delete to rollback tasks
@@ -205,7 +205,7 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 	})
 
 	if err := s.IAM.WaitUntilUserExistsWithContext(ctx, &iam.GetUserInput{UserName: aws.String(userName)}); err != nil {
-		return nil, ErrCode("waiting for user to exist for dataset "+id, err)
+		return nil, ErrCode("failed waiting for user to exist for dataset "+id, err)
 	}
 
 	log.Debugf("got iam create user response %+v", userOutput)
@@ -214,7 +214,7 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 		UserName: aws.String(userName),
 	})
 	if err != nil {
-		return nil, ErrCode("create user access key for dataset "+id, err)
+		return nil, ErrCode("failed to create user access key for dataset "+id, err)
 	}
 
 	// append user delete to rollback tasks
@@ -234,7 +234,7 @@ func (s *S3Repository) CreateUser(ctx context.Context, id string) (interface{}, 
 		GroupName: aws.String(groupName),
 		UserName:  aws.String(userName),
 	}); err != nil {
-		return nil, ErrCode("add user to group for dataset "+id, err)
+		return nil, ErrCode("failed to add user to group for dataset "+id, err)
 	}
 
 	log.Debugf("added user %s to group %s", userName, groupName)
@@ -281,7 +281,7 @@ func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 		GroupName: aws.String(groupName),
 	})
 	if err != nil {
-		return ErrCode("getting group for dataset "+id, err)
+		return ErrCode("failed to get group for dataset "+id, err)
 	}
 
 	log.Debugf("found group '%s' %+v", groupName, group)
@@ -291,7 +291,7 @@ func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 		PathPrefix: aws.String(s.IAMPathPrefix),
 	})
 	if err != nil {
-		return ErrCode("listing attached group policies for dataset "+id, err)
+		return ErrCode("failed to list attached group policies for dataset "+id, err)
 	}
 
 	log.Debugf("found attached group policies for '%s' %+v", groupName, groupPolicies)
@@ -303,7 +303,7 @@ func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 			GroupName: aws.String(groupName),
 			PolicyArn: p.PolicyArn,
 		}); err != nil {
-			return ErrCode("detaching group policies for dataset "+id, err)
+			return ErrCode("failed to detach group policies for dataset "+id, err)
 		}
 
 		if aws.StringValue(p.PolicyName) == policyName {
@@ -311,7 +311,7 @@ func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 			if _, err := s.IAM.DeletePolicyWithContext(ctx, &iam.DeletePolicyInput{
 				PolicyArn: p.PolicyArn,
 			}); err != nil {
-				return ErrCode("deleting policy for dataset "+id, err)
+				return ErrCode("failed to delete policy for dataset "+id, err)
 			}
 		}
 	}
@@ -323,7 +323,7 @@ func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 			GroupName: aws.String(groupName),
 			UserName:  u.UserName,
 		}); err != nil {
-			return ErrCode("removing user from group for dataset "+id, err)
+			return ErrCode("failed to remove user from group for dataset "+id, err)
 		}
 
 		if aws.StringValue(u.UserName) == userName {
@@ -331,7 +331,7 @@ func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 				UserName: aws.String(userName),
 			})
 			if err != nil {
-				return ErrCode("listing user access keys for dataset "+id, err)
+				return ErrCode("failed to list user access keys for dataset "+id, err)
 			}
 
 			for _, k := range keyOut.AccessKeyMetadata {
@@ -340,7 +340,7 @@ func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 					AccessKeyId: k.AccessKeyId,
 					UserName:    aws.String(userName),
 				}); err != nil {
-					return ErrCode("deleting user access key for dataset "+id, err)
+					return ErrCode("failed to delete user access key for dataset "+id, err)
 				}
 			}
 
@@ -348,7 +348,7 @@ func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 			if _, err := s.IAM.DeleteUserWithContext(ctx, &iam.DeleteUserInput{
 				UserName: aws.String(userName),
 			}); err != nil {
-				return ErrCode("deleting user for dataset "+id, err)
+				return ErrCode("failed to delete user for dataset "+id, err)
 			}
 
 		}
@@ -357,7 +357,7 @@ func (s *S3Repository) DeleteUser(ctx context.Context, id string) error {
 	if _, err := s.IAM.DeleteGroupWithContext(ctx, &iam.DeleteGroupInput{
 		GroupName: aws.String(groupName),
 	}); err != nil {
-		return ErrCode("deleting group for dataset "+id, err)
+		return ErrCode("failed to delete group for dataset "+id, err)
 	}
 
 	return nil
@@ -387,7 +387,7 @@ func (s *S3Repository) UpdateUser(ctx context.Context, id string) (map[string]in
 		UserName: aws.String(userName),
 	})
 	if err != nil {
-		return nil, ErrCode("listing user access keys for dataset "+id, err)
+		return nil, ErrCode("failed to list user access keys for dataset "+id, err)
 	}
 
 	log.Debugf("got user access keys output %+v", keysOut)
@@ -407,7 +407,7 @@ func (s *S3Repository) UpdateUser(ctx context.Context, id string) (map[string]in
 			UserName: aws.String(userName),
 		})
 		if err != nil {
-			return nil, ErrCode("create user access key for dataset "+id, err)
+			return nil, ErrCode("failed to create user access key for dataset "+id, err)
 		}
 
 		output["credentials"] = struct {
@@ -447,7 +447,7 @@ func (s *S3Repository) UpdateUser(ctx context.Context, id string) (map[string]in
 				Status:      aws.String("Inactive"),
 				UserName:    aws.String(userName),
 			}); err != nil {
-				return nil, ErrCode("deactivating user access key for dataset "+id, err)
+				return nil, ErrCode("failed to deactivate user access key for dataset "+id, err)
 			}
 			keys[aws.StringValue(k.AccessKeyId)] = "Inactive"
 		}

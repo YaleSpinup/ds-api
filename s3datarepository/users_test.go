@@ -497,7 +497,7 @@ func TestListUsers(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: failed getting access keys for user dataset-6639faf1-b9a2-4882-b4ff-36b429a80c6f-DsTmpUsr (TestListUsers ListAccessKeysWithContext)"),
+			err: errors.New("InternalError: failed to get access keys for user dataset-6639faf1-b9a2-4882-b4ff-36b429a80c6f-DsTmpUsr (TestListUsers ListAccessKeysWithContext)"),
 			merr: map[string]error{
 				"ListAccessKeysWithContext": errors.New("TestListUsers ListAccessKeysWithContext"),
 			},
@@ -580,7 +580,7 @@ func TestListGroupUsers(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: failed getting users for group dataset-1d210026-3696-4268-89e6-f20cfe7128ad-DsTmpGrp (TestListGroupUsers GetGroupWithContext)"),
+			err: errors.New("InternalError: failed to get users for group dataset-1d210026-3696-4268-89e6-f20cfe7128ad-DsTmpGrp (TestListGroupUsers GetGroupWithContext)"),
 			merr: map[string]error{
 				"GetGroupWithContext": errors.New("TestListGroupUsers GetGroupWithContext"),
 			},
@@ -649,7 +649,7 @@ func TestCreateUser(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: waiting for temporary access policy to exist for dataset 47db569b-06fc-4679-8a17-57fe2506d6d7 (TestCreateUser WaitUntilPolicyExistsWithContext)"),
+			err: errors.New("InternalError: failed waiting for temporary access policy to exist for dataset 47db569b-06fc-4679-8a17-57fe2506d6d7 (TestCreateUser WaitUntilPolicyExistsWithContext)"),
 			merr: map[string]error{
 				"WaitUntilPolicyExistsWithContext": errors.New("TestCreateUser WaitUntilPolicyExistsWithContext"),
 			},
@@ -670,7 +670,7 @@ func TestCreateUser(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: create group for dataset 3fad3da9-b485-4e19-a71d-77bb638964ed (TestCreateUser CreateGroupWithContext)"),
+			err: errors.New("InternalError: failed to create group for dataset 3fad3da9-b485-4e19-a71d-77bb638964ed (TestCreateUser CreateGroupWithContext)"),
 			merr: map[string]error{
 				"CreateGroupWithContext": errors.New("TestCreateUser CreateGroupWithContext"),
 			},
@@ -691,7 +691,7 @@ func TestCreateUser(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: attach policy to group for dataset 8462a15d-5456-4ec2-98ee-c6a3a9a055e9 (TestCreateUser AttachGroupPolicyWithContext)"),
+			err: errors.New("InternalError: failed to attach policy to group for dataset 8462a15d-5456-4ec2-98ee-c6a3a9a055e9 (TestCreateUser AttachGroupPolicyWithContext)"),
 			merr: map[string]error{
 				"AttachGroupPolicyWithContext": errors.New("TestCreateUser AttachGroupPolicyWithContext"),
 			},
@@ -712,7 +712,7 @@ func TestCreateUser(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: create user for dataset 5a1a1e09-a837-4b4e-84fd-0fb47d14b7fe (TestCreateUser CreateUserWithContext)"),
+			err: errors.New("InternalError: failed to create user for dataset 5a1a1e09-a837-4b4e-84fd-0fb47d14b7fe (TestCreateUser CreateUserWithContext)"),
 			merr: map[string]error{
 				"CreateUserWithContext": errors.New("TestCreateUser CreateUserWithContext"),
 			},
@@ -733,7 +733,7 @@ func TestCreateUser(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: waiting for user to exist for dataset 8447af60-1174-49a0-bc06-3ea18755fa25 (TestCreateUser WaitUntilUserExistsWithContext)"),
+			err: errors.New("InternalError: failed waiting for user to exist for dataset 8447af60-1174-49a0-bc06-3ea18755fa25 (TestCreateUser WaitUntilUserExistsWithContext)"),
 			merr: map[string]error{
 				"WaitUntilUserExistsWithContext": errors.New("TestCreateUser WaitUntilUserExistsWithContext"),
 			},
@@ -754,7 +754,7 @@ func TestCreateUser(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: create user access key for dataset 0d987a82-fa02-420b-8ea0-46d4d63a86a6 (TestCreateUser CreateAccessKeyWithContext)"),
+			err: errors.New("InternalError: failed to create user access key for dataset 0d987a82-fa02-420b-8ea0-46d4d63a86a6 (TestCreateUser CreateAccessKeyWithContext)"),
 			merr: map[string]error{
 				"CreateAccessKeyWithContext": errors.New("TestCreateUser CreateAccessKeyWithContext"),
 			},
@@ -775,7 +775,7 @@ func TestCreateUser(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: add user to group for dataset 3830f909-bfd7-4bae-87bd-cf9f0aeeac20 (TestCreateUser AddUserToGroupWithContext)"),
+			err: errors.New("InternalError: failed to add user to group for dataset 3830f909-bfd7-4bae-87bd-cf9f0aeeac20 (TestCreateUser AddUserToGroupWithContext)"),
 			merr: map[string]error{
 				"AddUserToGroupWithContext": errors.New("TestCreateUser AddUserToGroupWithContext"),
 			},
@@ -894,7 +894,7 @@ func TestUpdateUser(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: listing user access keys for dataset 091faadd-b8b8-449c-a6ba-88f9c5020556 (TestUpdateUser ListAccessKeysWithContext)"),
+			err: errors.New("InternalError: failed to list user access keys for dataset 091faadd-b8b8-449c-a6ba-88f9c5020556 (TestUpdateUser ListAccessKeysWithContext)"),
 			merr: map[string]error{
 				"ListAccessKeysWithContext": errors.New("TestUpdateUser ListAccessKeysWithContext"),
 			},
@@ -915,7 +915,7 @@ func TestUpdateUser(t *testing.T) {
 					accessKeys: []*iam.AccessKeyMetadata{},
 				},
 			},
-			err: errors.New("InternalError: create user access key for dataset 9e0f9251-9672-40dc-85b0-05cc2e146f30 (TestUpdateUser CreateAccessKeyWithContext)"),
+			err: errors.New("InternalError: failed to create user access key for dataset 9e0f9251-9672-40dc-85b0-05cc2e146f30 (TestUpdateUser CreateAccessKeyWithContext)"),
 			merr: map[string]error{
 				"CreateAccessKeyWithContext": errors.New("TestUpdateUser CreateAccessKeyWithContext"),
 			},
@@ -941,7 +941,7 @@ func TestUpdateUser(t *testing.T) {
 					},
 				},
 			},
-			err: errors.New("InternalError: deactivating user access key for dataset 8b17eea2-2afe-4eaf-9c1f-efe0f210c387 (TestUpdateUser UpdateAccessKeyWithContext)"),
+			err: errors.New("InternalError: failed to deactivate user access key for dataset 8b17eea2-2afe-4eaf-9c1f-efe0f210c387 (TestUpdateUser UpdateAccessKeyWithContext)"),
 			merr: map[string]error{
 				"UpdateAccessKeyWithContext": errors.New("TestUpdateUser UpdateAccessKeyWithContext"),
 			},
