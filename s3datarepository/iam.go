@@ -745,64 +745,6 @@ func (s *S3Repository) RevokeAccess(ctx context.Context, id, instanceID string) 
 	return nil
 }
 
-// GrantTemporaryAccess sets up temporary (user) access to the repository
-// TODO: Finish this
-func (s *S3Repository) GrantTemporaryAccess(ctx context.Context, id string) (*dataset.Access, error) {
-	if id == "" {
-		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
-	}
-
-	name := id
-	if s.NamePrefix != "" {
-		name = s.NamePrefix + "-" + name
-	}
-
-	log.Debugf("granting temporary access to s3datarepository: %s", name)
-
-	policyName := fmt.Sprintf("%s-TempPlc", name)
-	policyDoc, err := s.temporaryAccessPolicy(name)
-	if err != nil {
-		return nil, ErrCode("failed to generate temporary IAM policy for bucket "+name, err)
-	}
-
-	log.Debugf("creating temporary access policy for bucket '%s'", name)
-
-	// setup rollback function list and defer execution
-	var rollBackTasks []func() error
-	defer func() {
-		if err != nil {
-			log.Errorf("recovering from error granting access to s3datarepository: %s, executing %d rollback tasks", err, len(rollBackTasks))
-			rollBack(&rollBackTasks)
-		}
-	}()
-
-	policyOutput, err := s.IAM.CreatePolicyWithContext(ctx, &iam.CreatePolicyInput{
-		Description:    aws.String(fmt.Sprintf("Temporary policy for bucket %s", name)),
-		Path:           aws.String(s.IAMPathPrefix),
-		PolicyDocument: aws.String(string(policyDoc)),
-		PolicyName:     aws.String(policyName),
-	})
-	if err != nil {
-		return nil, ErrCode("failed to create temporary IAM policy", err)
-	}
-
-	// append policy delete to rollback tasks
-	rollBackTasks = append(rollBackTasks, func() error {
-		return func() error {
-			if _, err := s.IAM.DeletePolicyWithContext(ctx, &iam.DeletePolicyInput{PolicyArn: policyOutput.Policy.Arn}); err != nil {
-				return err
-			}
-			return nil
-		}()
-	})
-
-	// TODO: create group/user and attach policy, generate key
-
-	output := &dataset.Access{}
-
-	return output, nil
-}
-
 // assumeRolePolicy defines the IAM policy for assuming a role
 func (s *S3Repository) assumeRolePolicy() ([]byte, error) {
 	policyDoc, err := json.Marshal(PolicyDoc{

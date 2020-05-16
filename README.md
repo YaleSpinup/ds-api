@@ -18,6 +18,11 @@ DELETE /v1/ds/{account}/datasets/{id}
 GET /v1/ds/{account}/datasets/{id}/instances
 POST /v1/ds/{account}/datasets/{id}/instances
 DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
+
+GET /v1/ds/{account}/datasets/{id}/users
+POST /v1/ds/{account}/datasets/{id}/users
+DELETE /v1/ds/{account}/datasets/{id}/users
+PUT /v1/ds/{account}/datasets/{id}/users
 ```
 
 ## Usage
@@ -231,6 +236,99 @@ DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
 | **404 Not Found**             | account/dataset not found                    |
 | **500 Internal Server Error** | a server error occurred                      |
 
+### Create a user for a dataset
+
+POST /v1/ds/{account}/datasets/{id}/users
+
+Request body is empty.
+
+#### Response
+
+```json
+{
+    "user": "dataset-ssdev-95db5a7b-466b-4aa7-bbe1-1e23ed860f32-DsTmpUsr",
+    "group": "dataset-ssdev-95db5a7b-466b-4aa7-bbe1-1e23ed860f32-DsTmpGrp",
+    "policy": "dataset-ssdev-95db5a7b-466b-4aa7-bbe1-1e23ed860f32-DsTmpPlc",
+    "credentials": {
+        "akid": "XXXXXXXXXXXXXXXXXXXX",
+        "secret": "secretsecretsecretsecretsecretsecret",
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | instance access granted              |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | account/dataset not found            |
+| **409 Conflict**              | user already exists                  |
+| **500 Internal Server Error** | a server error occurred              |
+
+
+### Delete a user for a dataset
+
+DELETE /v1/ds/{account}/datasets/{id}/users
+
+#### Response
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | instance access granted              |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | account/dataset/user not found       |
+| **500 Internal Server Error** | a server error occurred              |
+
+### Get a user for a dataset
+
+GET /v1/ds/{account}/datasets/{id}/users
+
+#### Response
+
+```json
+{
+    "dataset-ssdev-95db5a7b-466b-4aa7-bbe1-1e23ed860f32-DsTmpUsr": {
+        "keys": {
+            "XXXXXXXXXXXXXXXXXXXX": "Inactive",
+            "YYYYYYYYYYYYYYYYYYYY": "Active"
+        }
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | instance access granted              |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | account/dataset/user not found       |
+| **500 Internal Server Error** | a server error occurred              |
+
+### Update a user's key for a dataset
+
+PUT /v1/ds/{account}/datasets/{id}/users
+
+Request body is empty.
+
+#### Response
+
+```json
+{
+    "keys": {
+        "XXXXXXXXXXXXXXXXXXXXX": "Inactive"
+    },
+    "credentials": {
+        "akid": "YYYYYYYYYYYYYYYYYYYYY",
+        "secret": "secretsecretsecretsecretsecretsecret"
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | instance access granted              |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | account/dataset not found            |
+| **429 Limit Exceeded**        | maximum number of keys               |
+| **500 Internal Server Error** | a server error occurred              |
 
 ## Authentication
 

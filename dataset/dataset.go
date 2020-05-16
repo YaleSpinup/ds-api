@@ -29,6 +29,10 @@ type DataRepository interface {
 	GrantAccess(ctx context.Context, id, instanceID string) (Access, error)
 	ListAccess(ctx context.Context, id string) (Access, error)
 	RevokeAccess(ctx context.Context, id, instanceID string) error
+	CreateUser(ctx context.Context, id string) (interface{}, error)
+	DeleteUser(ctx context.Context, id string) error
+	ListUsers(ctx context.Context, id string) (map[string]interface{}, error)
+	UpdateUser(ctx context.Context, id string) (map[string]interface{}, error)
 }
 
 // Access contains necessary information in order to access a dataset
