@@ -15,6 +15,9 @@ POST /v1/ds/{account}/datasets
 GET /v1/ds/{account}/datasets/{id}
 DELETE /v1/ds/{account}/datasets/{id}
 
+POST /v1/ds/{account}/datasets/{id}/attachments
+GET /v1/ds/{account}/datasets/{id}/attachments
+
 GET /v1/ds/{account}/datasets/{id}/instances
 POST /v1/ds/{account}/datasets/{id}/instances
 DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
@@ -174,6 +177,60 @@ DELETE /v1/ds/{account}/datasets/{id}
 | **204 OK**                    | okay                                 |
 | **400 Bad Request**           | badly formed request                 |
 | **404 Not Found**             | dataset not found                    |
+| **500 Internal Server Error** | a server error occurred              |
+
+
+### Create attachment for a dataset
+
+POST /v1/ds/{account}/datasets/{id}/attachments
+
+The request needs to be a `multipart/form-data` with the following parameters:
+  - `name` - the name of the attachment as it should be saved, e.g. `eula.txt`
+  - `attachment` - the content of the file being uploaded
+
+#### Response
+
+```json
+[
+    "eula.txt"
+]
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | okay                                 |
+| **400 Bad Request**           | badly formed request, or file too big|
+| **404 Not Found**             | dataset not found                    |
+| **500 Internal Server Error** | a server error occurred              |
+
+### Get attachments for a dataset
+
+GET /v1/ds/{account}/datasets/{id}/attachments
+
+#### Response
+
+```json
+[
+    {
+        "Name": "Dataset Data Use Agreement.pdf",
+        "Modified": "2020-05-17T02:04:27Z",
+        "Size": 3708454,
+        "URL": "https://dataset-localdev-3cadbe31-27e9-4f7a-9515-51ec9d754022.s3.amazonaws.com/_attachments/Dataset%20Data%20Use%20Agreement.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAXQVXYEBXA5X5LRN3%2F20200518%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20200518T132423Z&X-Amz-Expires=300&X-Amz-SignedHeaders=host&X-Amz-Signature=342d937b7b726408c2efe41493d126ea577204f85ffe77ffc9b3cf22af80c7ea"
+    },
+    {
+        "Name": "eula.txt",
+        "Modified": "2020-05-18T13:19:34Z",
+        "Size": 6920,
+        "URL": "https://dataset-localdev-3cadbe31-27e9-4f7a-9515-51ec9d754022.s3.amazonaws.com/_attachments/eula.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAXQVXYEBXA5X5LRN3%2F20200518%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20200518T132423Z&X-Amz-Expires=300&X-Amz-SignedHeaders=host&X-Amz-Signature=c2d7f7165ce3c099e8eefcb14e3b4c7e0e6a319af48d6727f25519f35488b14a"
+    }
+]
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | okay                                 |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | account/dataset not found            |
 | **500 Internal Server Error** | a server error occurred              |
 
 
