@@ -20,6 +20,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"github.com/aws/aws-sdk-go/service/sts"
 	"github.com/aws/aws-sdk-go/service/sts/stsiface"
 	log "github.com/sirupsen/logrus"
@@ -35,6 +37,7 @@ type S3Repository struct {
 	EC2           ec2iface.EC2API
 	IAM           iamiface.IAMAPI
 	S3            s3iface.S3API
+	S3Uploader    s3manageriface.UploaderAPI
 	STS           stsiface.STSAPI
 	config        *aws.Config
 }
@@ -96,6 +99,7 @@ func New(opts ...S3RepositoryOption) (*S3Repository, error) {
 	s.EC2 = ec2.New(sess)
 	s.IAM = iam.New(sess)
 	s.S3 = s3.New(sess)
+	s.S3Uploader = s3manager.NewUploaderWithClient(s.S3)
 	s.STS = sts.New(sess)
 
 	return &s, nil

@@ -2,14 +2,17 @@ package dataset
 
 import (
 	"context"
+	"mime/multipart"
+	"time"
 
 	"github.com/google/uuid"
 )
 
-// Service is a collection of one or more Data Repositories and a Matadata Repository for storing datasets
+// Service is a collection of one or more Data/Attachment Repositories and a Matadata Repository for storing datasets
 type Service struct {
-	MetadataRepository MetadataRepository
-	DataRepository     map[string]DataRepository
+	MetadataRepository   MetadataRepository
+	DataRepository       map[string]DataRepository
+	AttachmentRepository map[string]AttachmentRepository
 }
 
 // MetadataRepository is an interface for metadata repository
@@ -35,8 +38,22 @@ type DataRepository interface {
 	UpdateUser(ctx context.Context, id string) (map[string]interface{}, error)
 }
 
+// AttachmentRepository is an interface for attachment repository
+type AttachmentRepository interface {
+	CreateAttachment(ctx context.Context, id, attachmentName string, attachmentBody multipart.File) error
+	ListAttachments(ctx context.Context, id string) ([]Attachment, error)
+}
+
 // Access contains necessary information in order to access a dataset
 type Access map[string]string
+
+// Attachment contains information about a dataset attachment
+type Attachment struct {
+	Name     string
+	Modified time.Time
+	Size     int64
+	URL      string
+}
 
 // ServiceOption is a function to set service options
 type ServiceOption func(*Service)
@@ -63,6 +80,13 @@ func WithMetadataRepository(repo MetadataRepository) ServiceOption {
 func WithDataRepository(repos map[string]DataRepository) ServiceOption {
 	return func(s *Service) {
 		s.DataRepository = repos
+	}
+}
+
+// WithAttachmentRepository sets the AttachmentRepository list for the service
+func WithAttachmentRepository(repos map[string]AttachmentRepository) ServiceOption {
+	return func(s *Service) {
+		s.AttachmentRepository = repos
 	}
 }
 
