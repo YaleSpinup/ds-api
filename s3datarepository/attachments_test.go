@@ -6,8 +6,10 @@ import (
 	"mime/multipart"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/YaleSpinup/ds-api/apierror"
+	"github.com/YaleSpinup/ds-api/dataset"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -37,24 +39,25 @@ func (u mockS3Uploader) UploadWithContext(ctx aws.Context, input *s3manager.Uplo
 	return &s3manager.UploadOutput{}, nil
 }
 
-// func (m *mockS3Client) GetObjectRequest(input *s3.GetObjectInput) (req *request.Request, output *s3.GetObjectOutput) {
-// 	return &request.Request{}, &s3.GetObjectOutput{}
-// }
-
 func (m *mockS3Client) ListObjectsV2WithContext(ctx aws.Context, input *s3.ListObjectsV2Input, opts ...request.Option) (*s3.ListObjectsV2Output, error) {
 	if err, ok := m.err["ListObjectsV2WithContext"]; ok {
 		return nil, err
 	}
 
+	time1, _ := time.Parse(time.RFC3339, "2020-01-01T01:00:00Z")
+	time2, _ := time.Parse(time.RFC3339, "2020-02-02T02:00:00Z")
+
 	if aws.StringValue(input.Prefix) == "_attachments/" {
 		contents := []*s3.Object{
 			&s3.Object{
-				Key:  aws.String(aws.StringValue(input.Prefix) + "test1.doc"),
-				Size: aws.Int64(10000),
+				Key:          aws.String(aws.StringValue(input.Prefix) + "test1.doc"),
+				LastModified: aws.Time(time1),
+				Size:         aws.Int64(10000),
 			},
 			&s3.Object{
-				Key:  aws.String(aws.StringValue(input.Prefix) + "test2.doc"),
-				Size: aws.Int64(20000),
+				Key:          aws.String(aws.StringValue(input.Prefix) + "test2.doc"),
+				LastModified: aws.Time(time2),
+				Size:         aws.Int64(20000),
 			},
 		}
 		return &s3.ListObjectsV2Output{Contents: contents}, nil
@@ -141,18 +144,58 @@ func TestCreateAttachment(t *testing.T) {
 func TestListAttachments(t *testing.T) {
 	s := S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
 
-	// test success
-	// _, err := s.ListAttachments(context.TODO(), "9C7BFAC0-0070-4FC2-8849-2F94A64B6FF8")
-	// if err != nil {
-	// 	t.Errorf("expected nil error, got: %s", err)
-	// }
+	time1, _ := time.Parse(time.RFC3339, "2020-01-01T01:00:00Z")
+	time2, _ := time.Parse(time.RFC3339, "2020-02-02T02:00:00Z")
+	expected := []dataset.Attachment{
+		dataset.Attachment{
+			Name:     "test1.doc",
+			Modified: time1,
+			Size:     10000,
+		},
+		dataset.Attachment{
+			Name:     "test2.doc",
+			Modified: time2,
+			Size:     20000,
+		},
+	}
+
+	// test success, don't generate presigned URL
+	got, err := s.ListAttachments(context.TODO(), "9C7BFAC0-0070-4FC2-8849-2F94A64B6FF8", false)
+	if err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
+		t.Errorf("expected output:\n%+v, got:\n%+v", expected, got)
+	}
 
 	// test empty id
 	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
 	expectedCode := apierror.ErrBadRequest
 	expectedMessage := "invalid input"
 
-	_, err := s.ListAttachments(context.TODO(), "")
+	_, err = s.ListAttachments(context.TODO(), "", false)
+	if err == nil {
+		t.Error("expected error, got: nil")
+	} else {
+		if aerr, ok := err.(apierror.Error); ok {
+			if aerr.Code != expectedCode {
+				t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+			}
+			if aerr.Message != expectedMessage {
+				t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+			}
+		} else {
+			t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+		}
+	}
+
+	// test s3 list object failure
+	s = S3Repository{NamePrefix: "dataset", S3: newMockS3Client(t)}
+	expectedCode = apierror.ErrServiceUnavailable
+	expectedMessage = fmt.Sprintf("failed to list objects from s3")
+	s.S3.(*mockS3Client).err["ListObjectsV2WithContext"] = awserr.New("InternalError", "Internal Error", nil)
+
+	_, err = s.ListAttachments(context.TODO(), "9C7BFAC0-0070-4FC2-8849-2F94A64B6FF8", false)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {

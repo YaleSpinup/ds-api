@@ -131,7 +131,7 @@ func (s *server) AttachmentListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// list attachments for this data repository
-	datasetAttachments, err := attachmentRepo.ListAttachments(r.Context(), id)
+	datasetAttachments, err := attachmentRepo.ListAttachments(r.Context(), id, true)
 	if err != nil {
 		msg := fmt.Sprintf("failed to list attachments for dataset %s: %s", id, err)
 		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))

@@ -48,7 +48,7 @@ func (s *S3Repository) CreateAttachment(ctx context.Context, id, attachmentName 
 }
 
 // ListAttachments lists all attachments for the data repository
-func (s *S3Repository) ListAttachments(ctx context.Context, id string) ([]dataset.Attachment, error) {
+func (s *S3Repository) ListAttachments(ctx context.Context, id string, showURL bool) ([]dataset.Attachment, error) {
 	if id == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
@@ -58,14 +58,14 @@ func (s *S3Repository) ListAttachments(ctx context.Context, id string) ([]datase
 		name = s.NamePrefix + "-" + name
 	}
 
-	log.Debugf("getting list of attachments for s3datarepository: %s", name)
+	log.Debugf("getting list of attachments for s3datarepository: %s (showURL: %t)", name, showURL)
 
-	return s.listAttachmentObjects(ctx, name, attachmentsPrefix)
+	return s.listAttachmentObjects(ctx, name, attachmentsPrefix, showURL)
 }
 
 // listAttachmentObjects lists all objects under the given prefix, and generates a pre-signed URL for each one
-func (s *S3Repository) listAttachmentObjects(ctx context.Context, bucket, prefix string) ([]dataset.Attachment, error) {
-	objs := []dataset.Attachment{}
+func (s *S3Repository) listAttachmentObjects(ctx context.Context, bucket, prefix string, showURL bool) ([]dataset.Attachment, error) {
+	attachments := []dataset.Attachment{}
 
 	input := s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
@@ -76,24 +76,29 @@ func (s *S3Repository) listAttachmentObjects(ctx context.Context, bucket, prefix
 	for truncated {
 		output, err := s.S3.ListObjectsV2WithContext(ctx, &input)
 		if err != nil {
-			return nil, ErrCode("failed to list objects from s3 ", err)
+			return nil, ErrCode("failed to list objects from s3", err)
 		}
 
 		for _, object := range output.Contents {
 			id := strings.TrimPrefix(aws.StringValue(object.Key), prefix)
 			if id != "" {
-				// generate pre-signed URL for accessing the attachment
-				urlStr, err := s.presignURL(bucket, aws.StringValue(object.Key))
-				if err != nil {
-					log.Errorf("failed to presign request for %s: %s", aws.StringValue(object.Key), err)
-				}
-
-				objs = append(objs, dataset.Attachment{
+				attachment := dataset.Attachment{
 					Name:     strings.TrimPrefix(id, "/"),
 					Modified: aws.TimeValue(object.LastModified),
 					Size:     aws.Int64Value(object.Size),
-					URL:      urlStr,
-				})
+				}
+
+				if showURL {
+					// generate pre-signed URL for accessing the attachment
+					urlStr, err := s.presignURL(bucket, aws.StringValue(object.Key))
+					if err != nil {
+						log.Errorf("failed to presign request for %s: %s", aws.StringValue(object.Key), err)
+					} else {
+						attachment.URL = urlStr
+					}
+				}
+
+				attachments = append(attachments, attachment)
 			}
 		}
 
@@ -101,9 +106,9 @@ func (s *S3Repository) listAttachmentObjects(ctx context.Context, bucket, prefix
 		input.ContinuationToken = output.NextContinuationToken
 	}
 
-	log.Debug(objs)
+	log.Debug(attachments)
 
-	return objs, nil
+	return attachments, nil
 }
 
 func (s *S3Repository) presignURL(bucket, key string) (string, error) {

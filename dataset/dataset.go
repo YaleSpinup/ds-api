@@ -41,7 +41,7 @@ type DataRepository interface {
 // AttachmentRepository is an interface for attachment repository
 type AttachmentRepository interface {
 	CreateAttachment(ctx context.Context, id, attachmentName string, attachmentBody multipart.File) error
-	ListAttachments(ctx context.Context, id string) ([]Attachment, error)
+	ListAttachments(ctx context.Context, id string, showURL bool) ([]Attachment, error)
 }
 
 // Access contains necessary information in order to access a dataset
@@ -52,7 +52,7 @@ type Attachment struct {
 	Name     string
 	Modified time.Time
 	Size     int64
-	URL      string
+	URL      string `json:",omitempty"`
 }
 
 // ServiceOption is a function to set service options
