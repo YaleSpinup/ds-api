@@ -50,8 +50,6 @@ func (s *server) AttachmentCreateHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	log.Debug(r.MultipartForm)
-
 	// get the attachment name
 	attachmentName := r.FormValue("name")
 	if attachmentName == "" {
@@ -75,8 +73,6 @@ func (s *server) AttachmentCreateHandler(w http.ResponseWriter, r *http.Request)
 		handleError(w, apierror.New(apierror.ErrBadRequest, "attachment size too big", err))
 		return
 	}
-
-	log.Infof("creating attachment for data set '%s' in account '%s': %s", id, account, attachmentName)
 
 	err = attachmentRepo.CreateAttachment(r.Context(), id, attachmentName, attachment)
 	if err != nil {
@@ -114,8 +110,6 @@ func (s *server) AttachmentListHandler(w http.ResponseWriter, r *http.Request) {
 		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
 	}
-
-	log.Debugf("listing attachments for data set '%s' in account %s", id, account)
 
 	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
 	if err != nil {

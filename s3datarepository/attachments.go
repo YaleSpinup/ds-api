@@ -19,6 +19,8 @@ const attachmentsPrefix = "_attachments/"
 
 // CreateAttachment uploads a new attachment to the data repository
 func (s *S3Repository) CreateAttachment(ctx context.Context, id, attachmentName string, attachmentBody multipart.File) error {
+	log.Infof("creating attachment for data set '%s': %s", id, attachmentName)
+
 	if id == "" {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
@@ -34,7 +36,7 @@ func (s *S3Repository) CreateAttachment(ctx context.Context, id, attachmentName 
 
 	attachmentName = attachmentsPrefix + attachmentName
 
-	log.Debugf("uploading attachment '%s' to s3datarepository: %s", attachmentName, name)
+	log.Infof("uploading attachment '%s' to s3datarepository: %s", attachmentName, name)
 
 	if _, err := s.S3Uploader.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket: aws.String(name),
