@@ -42,6 +42,7 @@ func (s *server) AttachmentCreateHandler(w http.ResponseWriter, r *http.Request)
 
 	// limit total request size to 50 MB
 	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
+	defer r.Body.Close()
 
 	// parse the multipart form and keep up to 32 MB in memory (the rest on temp disk)
 	err = r.ParseMultipartForm(32 << 20)
@@ -70,7 +71,8 @@ func (s *server) AttachmentCreateHandler(w http.ResponseWriter, r *http.Request)
 	log.Debugf("attachment size (bytes): %v", attachmentHeader.Size)
 
 	if attachmentHeader.Size > maxAttachmentSize {
-		handleError(w, apierror.New(apierror.ErrBadRequest, "attachment size too big", err))
+		msg := fmt.Sprintf("attachment size too big (max limit is %d bytes)", maxAttachmentSize)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
 		return
 	}
 
