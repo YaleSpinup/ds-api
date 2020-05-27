@@ -81,6 +81,7 @@ func NewServer(config common.Config) error {
 		log.Debugf("Creating new service for account '%s' with key '%s' in region '%s' (org: %s, providers: %s)", name, a.Config["akid"], a.Config["region"], Org, a.StorageProviders)
 
 		dataRepos := make(map[string]dataset.DataRepository)
+		attachmentRepos := make(map[string]dataset.AttachmentRepository)
 
 		if a.StorageProviders == nil || len(a.StorageProviders) == 0 {
 			return errors.New("no storage providers configured for account: " + name)
@@ -90,12 +91,21 @@ func NewServer(config common.Config) error {
 		for _, p := range a.StorageProviders {
 			switch p {
 			case "s3":
+				// configure the data repository
 				dataRepo, err := s3datarepository.NewDefaultRepository(a.Config)
 				if err != nil {
 					return err
 				}
 				dataRepo.NamePrefix = "dataset-" + Org
 				dataRepos["s3"] = dataRepo
+
+				// configure the attachment repository to use same backend as the data repository
+				attachmentRepo, err := s3datarepository.NewDefaultRepository(a.Config)
+				if err != nil {
+					return err
+				}
+				attachmentRepo.NamePrefix = "dataset-" + Org
+				attachmentRepos["s3"] = attachmentRepo
 			default:
 				msg := fmt.Sprintf("failed to determine data repository provider for account %s, or storage provider not supported: %s", name, p)
 				return errors.New(msg)
@@ -105,6 +115,7 @@ func NewServer(config common.Config) error {
 		s.datasetServices[name] = dataset.NewService(
 			dataset.WithMetadataRepository(metadataRepo),
 			dataset.WithDataRepository(dataRepos),
+			dataset.WithAttachmentRepository(attachmentRepos),
 		)
 	}
 
