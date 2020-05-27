@@ -49,6 +49,41 @@ func (s *S3Repository) CreateAttachment(ctx context.Context, id, attachmentName 
 	return nil
 }
 
+// DeleteAttachment deletes an attachment from the data repository
+func (s *S3Repository) DeleteAttachment(ctx context.Context, id, attachmentName string) error {
+	log.Infof("deleting attachment from data set '%s': %s", id, attachmentName)
+
+	if id == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	if attachmentName == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty attachment name"))
+	}
+
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
+
+	attachmentName = attachmentsPrefix + attachmentName
+
+	return s.deleteObject(ctx, name, attachmentName)
+}
+
+func (s *S3Repository) deleteObject(ctx context.Context, bucket, key string) error {
+	log.Infof("deleting objects with key '%s' from bucket %s", key, bucket)
+
+	if _, err := s.S3.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	}); err != nil {
+		return ErrCode("failed to delete object "+key, err)
+	}
+
+	return nil
+}
+
 // ListAttachments lists all attachments for the data repository
 func (s *S3Repository) ListAttachments(ctx context.Context, id string, showURL bool) ([]dataset.Attachment, error) {
 	if id == "" {

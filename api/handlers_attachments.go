@@ -148,5 +148,56 @@ func (s *server) AttachmentListHandler(w http.ResponseWriter, r *http.Request) {
 
 // AttachmentDeleteHandler removes an attachment file from a dataset
 func (s *server) AttachmentDeleteHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	id := vars["id"]
+
+	service, ok := s.datasetServices[account]
+	if !ok {
+		msg := fmt.Sprintf("account not found: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
+
+	input := struct {
+		AttachmentName string `json:"attachment_name"`
+	}{}
+
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		msg := fmt.Sprintf("cannot decode body into delete attachment input: %s", err)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+		return
+	}
+
+	if input.AttachmentName == "" {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "attachment_name is required", nil))
+		return
+	}
+
+	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	attachmentRepo, ok := service.AttachmentRepository[metadata.DataStorage]
+	if !ok {
+		msg := fmt.Sprintf("requested attachment repository type not supported for this account: %s", metadata.DataStorage)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+		return
+	}
+
+	// delete attachment from this data repository
+	err = attachmentRepo.DeleteAttachment(r.Context(), id, input.AttachmentName)
+	if err != nil {
+		msg := fmt.Sprintf("failed to delete attachment '%s' for dataset %s: %s", input.AttachmentName, id, err)
+		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
+	w.Write([]byte{})
 }

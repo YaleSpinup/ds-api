@@ -203,6 +203,26 @@ The request needs to be a `multipart/form-data` with the following parameters:
 | **404 Not Found**             | dataset not found                    |
 | **500 Internal Server Error** | a server error occurred              |
 
+### Delete attachment from a dataset
+
+DELETE /v1/ds/{account}/datasets/{id}/attachments
+
+```json
+{
+	"attachment_name": "dummy.doc"
+}
+```
+
+#### Response
+
+| Response Code                 | Definition                                   |
+| ----------------------------- | ---------------------------------------------|
+| **204 OK**                    | attachment deleted, if it existed            |
+| **400 Bad Request**           | bad request                                  |
+| **404 Not Found**             | account/dataset not found                    |
+| **500 Internal Server Error** | a server error occurred                      |
+
+
 ### Get attachments for a dataset
 
 GET /v1/ds/{account}/datasets/{id}/attachments

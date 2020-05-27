@@ -41,6 +41,7 @@ type DataRepository interface {
 // AttachmentRepository is an interface for attachment repository
 type AttachmentRepository interface {
 	CreateAttachment(ctx context.Context, id, attachmentName string, attachmentBody multipart.File) error
+	DeleteAttachment(ctx context.Context, id, attachmentName string) error
 	ListAttachments(ctx context.Context, id string, showURL bool) ([]Attachment, error)
 }
 
