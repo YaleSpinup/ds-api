@@ -72,7 +72,7 @@ func (s *S3Repository) DeleteAttachment(ctx context.Context, id, attachmentName 
 }
 
 func (s *S3Repository) deleteObject(ctx context.Context, bucket, key string) error {
-	log.Infof("deleting objects with key '%s' from bucket %s", key, bucket)
+	log.Infof("deleting object with key '%s' from bucket %s", key, bucket)
 
 	if _, err := s.S3.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(bucket),

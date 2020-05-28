@@ -135,7 +135,7 @@ func NewServer(config common.Config) error {
 	srv := &http.Server{
 		Handler:      handler,
 		Addr:         config.ListenAddress,
-		WriteTimeout: 15 * time.Second,
+		WriteTimeout: 60 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
 
