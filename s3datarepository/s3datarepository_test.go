@@ -152,6 +152,55 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestBucketEmpty(t *testing.T) {
+	s := S3Repository{
+		S3:  newMockS3Client(t),
+		IAM: newMockIAMClient(t),
+	}
+
+	// test successful empty bucket
+	empty, err := s.bucketEmpty(context.TODO(), "testBucketEmpty")
+	if err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+
+	if !empty {
+		t.Error("expected testBucketEmpty bucket to be empty")
+	}
+
+	// test successful not empty bucket
+	empty, err = s.bucketEmpty(context.TODO(), "testBucketNotEmpty")
+	if err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+
+	if empty {
+		t.Error("expected testBucketNotEmpty bucket to not be empty")
+	}
+
+	// test empty bucket name
+	_, err = s.bucketEmpty(context.TODO(), "")
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrBadRequest {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test non-aws error
+	// s.Service.(*mockS3Client).err = errors.New("things blowing up!")
+	s.S3.(*mockS3Client).err["ListObjectsV2WithContext"] = awserr.New("InternalError", "Internal Error", nil)
+	_, err = s.bucketEmpty(context.TODO(), "testBucket")
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrServiceUnavailable {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrServiceUnavailable, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+}
+
 func TestBucketExists(t *testing.T) {
 	s := S3Repository{
 		S3:  newMockS3Client(t),

@@ -149,6 +149,29 @@ func WithIAMPathPrefix(prefix string) S3RepositoryOption {
 // 	}
 // }
 
+// bucketEmpty lists the objects in a bucket with a max of 1, if there are any objects returned, we return false
+func (s *S3Repository) bucketEmpty(ctx context.Context, bucketName string) (bool, error) {
+	if bucketName == "" {
+		return false, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
+	}
+
+	log.Debugf("checking if bucket %s is empty", bucketName)
+
+	out, err := s.S3.ListObjectsV2WithContext(ctx, &s3.ListObjectsV2Input{
+		Bucket:  aws.String(bucketName),
+		MaxKeys: aws.Int64(1),
+	})
+	if err != nil {
+		return false, ErrCode("failed to determine if bucket is empty for bucket "+bucketName, err)
+	}
+
+	if aws.Int64Value(out.KeyCount) > 0 {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 // bucketExists checks if a bucket exists and we have access to it
 func (s *S3Repository) bucketExists(ctx context.Context, bucketName string) (bool, error) {
 	if _, err := s.S3.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
@@ -192,6 +215,12 @@ func (s *S3Repository) Describe(ctx context.Context, id string) (*dataset.Reposi
 		return nil, apierror.New(apierror.ErrInternalError, "internal error", nil)
 	}
 
+	// check if there are any objects in the bucket
+	empty, err := s.bucketEmpty(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
 	// get tags
 	log.Debugf("getting tags for bucket %s", name)
 	datasetTags, err := s.S3.GetBucketTaggingWithContext(ctx, &s3.GetBucketTaggingInput{Bucket: aws.String(name)})
@@ -209,8 +238,9 @@ func (s *S3Repository) Describe(ctx context.Context, id string) (*dataset.Reposi
 	}
 
 	output := &dataset.Repository{
-		Name: name,
-		Tags: tags,
+		Name:  name,
+		Empty: empty,
+		Tags:  tags,
 	}
 
 	return output, nil

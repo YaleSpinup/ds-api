@@ -52,6 +52,14 @@ func (m *mockS3Client) ListObjectsV2WithContext(ctx aws.Context, input *s3.ListO
 		return nil, err
 	}
 
+	if aws.StringValue(input.Bucket) == "testBucketEmpty" {
+		return &s3.ListObjectsV2Output{KeyCount: aws.Int64(int64(0))}, nil
+	}
+
+	if aws.StringValue(input.Bucket) == "testBucketNotEmpty" {
+		return &s3.ListObjectsV2Output{KeyCount: aws.Int64(int64(1))}, nil
+	}
+
 	time1, _ := time.Parse(time.RFC3339, "2020-01-01T01:00:00Z")
 	time2, _ := time.Parse(time.RFC3339, "2020-02-02T02:00:00Z")
 
@@ -68,7 +76,7 @@ func (m *mockS3Client) ListObjectsV2WithContext(ctx aws.Context, input *s3.ListO
 				Size:         aws.Int64(20000),
 			},
 		}
-		return &s3.ListObjectsV2Output{Contents: contents}, nil
+		return &s3.ListObjectsV2Output{KeyCount: aws.Int64(int64(2)), Contents: contents}, nil
 	}
 
 	return nil, awserr.New(s3.ErrCodeNoSuchKey, aws.StringValue(input.Prefix)+" not found", nil)

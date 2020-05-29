@@ -2,8 +2,9 @@ package dataset
 
 // Repository is information about a data repository
 type Repository struct {
-	Name string `json:"name"`
-	Tags []*Tag `json:"tags"`
+	Name  string `json:"name"`
+	Empty bool   `json:"empty"`
+	Tags  []*Tag `json:"tags"`
 }
 
 // Tag is the structure of a data repository tag

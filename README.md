@@ -131,6 +131,7 @@ GET /v1/ds/{account}/datasets/{id}
     },
     "repository": {
         "name": "dataset-localdev-bb4f6316-53e2-45ae-97c7-fa7fd17f78a8",
+        "empty": false,
         "tags": [
             {
                 "key": "CreatedBy",
