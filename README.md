@@ -16,6 +16,7 @@ GET /v1/ds/{account}/datasets/{id}
 DELETE /v1/ds/{account}/datasets/{id}
 
 POST /v1/ds/{account}/datasets/{id}/attachments
+DELETE /v1/ds/{account}/datasets/{id}/attachments
 GET /v1/ds/{account}/datasets/{id}/attachments
 
 GET /v1/ds/{account}/datasets/{id}/instances
