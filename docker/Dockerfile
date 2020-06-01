@@ -25,7 +25,7 @@ WORKDIR /app
 COPY --from=build-env /app/api.out /app/api
 RUN chmod 555 /app/api
 
-RUN apk add --no-cache bash ca-certificates wget && \
+RUN apk add --no-cache bash ca-certificates && \
     pip3 install awscli --upgrade && \
     aws --version
 
