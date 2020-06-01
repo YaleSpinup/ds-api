@@ -13,6 +13,8 @@ GET /v1/ds/metrics
 
 POST /v1/ds/{account}/datasets
 GET /v1/ds/{account}/datasets/{id}
+PATCH /v1/ds/{account}/datasets/{id}
+PUT /v1/ds/{account}/datasets/{id}
 DELETE /v1/ds/{account}/datasets/{id}
 
 POST /v1/ds/{account}/datasets/{id}/attachments
@@ -158,6 +160,106 @@ GET /v1/ds/{account}/datasets/{id}
                 "key": "Name",
                 "value": "awesome-dataset-of-stuff"
             }
+        ]
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | okay                                 |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | dataset not found                    |
+| **500 Internal Server Error** | a server error occurred              |
+
+### Promote a dataset
+
+PATCH /v1/ds/{account}/datasets/{id}
+
+```json
+{
+	"modified_by": "awong"
+}
+```
+
+#### Response
+
+```json
+{
+    "id": "bb4f6316-53e2-45ae-97c7-fa7fd17f78a8",
+    "metadata": {
+        "id": "bb4f6316-53e2-45ae-97c7-fa7fd17f78a8",
+        "name": "awesome-dataset-of-stuff",
+        "description": "The hugest dataset of awesome stuff",
+        "created_at": "2020-03-16T15:38:14Z",
+        "created_by": "drzoidberg",
+        "data_classifications": [
+            "hipaa",
+            "pii"
+        ],
+        "data_format": "file",
+        "data_storage": "s3",
+        "derivative": false,
+        "dua_url": "https://allmydata.s3.amazonaws.com/duas/huge_awesome_dua.pdf",
+        "finalized_at": "2020-06-01T19:27:35Z",
+        "finalized_by": "awong",
+        "modified_at": "2020-06-01T19:27:35Z",
+        "modified_by": "awong",
+        "proctor_response_url": "https://allmydata.s3.amazonaws.com/proctor/huge_awesome_study.json",
+        "source_ids": [
+            "d37b375b-d136-4b17-8666-5036dc554a66",
+        ]
+    }
+}
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | okay                                 |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | dataset not found                    |
+| **409 Conflict**              | dataset already finalized            |
+| **500 Internal Server Error** | a server error occurred              |
+
+### Update dataset metadata
+
+PUT /v1/ds/{account}/datasets/{id}
+
+```json
+{
+	"metadata": {
+		"description": "It's actually a tiny dataset",
+		"modified_by": "awong"
+	}
+}
+```
+
+#### Response
+
+```json
+{
+    "id": "bb4f6316-53e2-45ae-97c7-fa7fd17f78a8",
+    "metadata": {
+        "id": "bb4f6316-53e2-45ae-97c7-fa7fd17f78a8",
+        "name": "awesome-dataset-of-stuff",
+        "description": "It's actually a tiny dataset",
+        "created_at": "2020-03-16T15:38:14Z",
+        "created_by": "drzoidberg",
+        "data_classifications": [
+            "hipaa",
+            "pii"
+        ],
+        "data_format": "file",
+        "data_storage": "s3",
+        "derivative": false,
+        "dua_url": "https://allmydata.s3.amazonaws.com/duas/huge_awesome_dua.pdf",
+        "finalized_at": "2020-06-01T19:27:35Z",
+        "finalized_by": "awong",
+        "modified_at": "2020-06-01T21:31:05Z",
+        "modified_by": "awong",
+        "proctor_response_url": "https://allmydata.s3.amazonaws.com/proctor/huge_awesome_study.json",
+        "source_ids": [
+            "d37b375b-d136-4b17-8666-5036dc554a66",
         ]
     }
 }

@@ -233,6 +233,76 @@ func (s *S3Repository) Get(ctx context.Context, account, id string) (*dataset.Me
 	return metadata, nil
 }
 
+// Promote sets the finalized_at time and finalized_by user in the metadata object, as well as derivative=false
+func (s *S3Repository) Promote(ctx context.Context, account, id, user string) (*dataset.Metadata, error) {
+	if account == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty account"))
+	}
+
+	if id == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	if user == "" {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty user"))
+	}
+
+	log.Infof("promoting s3metadatarepository '%s' in account '%s'", id, account)
+
+	key := s.Prefix + "/" + account
+	if !strings.HasSuffix(account, "/") && !strings.HasPrefix(id, "/") {
+		key = key + "/"
+	}
+	key = key + id
+
+	out, err := s.S3.GetObjectWithContext(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.Bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return nil, ErrCode("failed to get metadata object from s3: "+key, err)
+	}
+	defer out.Body.Close()
+
+	metadata := &dataset.Metadata{}
+	err = json.NewDecoder(out.Body).Decode(metadata)
+	if err != nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "failed to decode json from s3", err)
+	}
+
+	log.Debugf("output from getting s3 metadata '%s': %+v", key, metadata)
+
+	if metadata.FinalizedAt != nil {
+		return nil, apierror.New(apierror.ErrConflict, "dataset already finalized", nil)
+	}
+
+	// set the modified/finalized attributes
+	now := time.Now().UTC().Truncate(time.Second)
+	metadata.ModifiedAt = &now
+	metadata.ModifiedBy = user
+	metadata.FinalizedAt = &now
+	metadata.FinalizedBy = user
+
+	// if this is a derivative dataset, promote it to original
+	metadata.Derivative = false
+
+	j, err := json.MarshalIndent(metadata, "", "\t")
+	if err != nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", err)
+	}
+
+	if _, err = s.S3.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Body:        bytes.NewReader(j),
+		Bucket:      aws.String(s.Bucket),
+		ContentType: aws.String("application/json"),
+		Key:         aws.String(key),
+	}); err != nil {
+		return nil, ErrCode("failed to put s3 metadata object: "+key, err)
+	}
+
+	return metadata, nil
+}
+
 // Update updates a metadata object in the repository
 func (s *S3Repository) Update(ctx context.Context, account, id string, metadata *dataset.Metadata) (*dataset.Metadata, error) {
 	if account == "" {
@@ -243,7 +313,31 @@ func (s *S3Repository) Update(ctx context.Context, account, id string, metadata 
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
-	log.Debugf("updating s3metadatarepository object in account '%s' with id '%s': %+v", account, id, metadata)
+	log.Infof("updating s3metadatarepository object in account '%s' with id '%s': %+v", account, id, metadata)
+
+	// set the modified time to right now
+	now := time.Now().UTC().Truncate(time.Second)
+	metadata.ModifiedAt = &now
+
+	key := s.Prefix + "/" + account
+	if !strings.HasSuffix(account, "/") && !strings.HasPrefix(id, "/") {
+		key = key + "/"
+	}
+	key = key + id
+
+	j, err := json.MarshalIndent(metadata, "", "\t")
+	if err != nil {
+		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", err)
+	}
+
+	if _, err = s.S3.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Body:        bytes.NewReader(j),
+		Bucket:      aws.String(s.Bucket),
+		ContentType: aws.String("application/json"),
+		Key:         aws.String(key),
+	}); err != nil {
+		return nil, ErrCode("failed to put s3 metadata object: "+key, err)
+	}
 
 	return metadata, nil
 }

@@ -22,6 +22,8 @@ type Metadata struct {
 	DataStorage         string     `json:"data_storage"`
 	Derivative          bool       `json:"derivative"`
 	DuaURL              *url.URL   `json:"dua_url"`
+	FinalizedAt         *time.Time `json:"finalized_at"`
+	FinalizedBy         string     `json:"finalized_by"`
 	ModifiedAt          *time.Time `json:"modified_at"`
 	ModifiedBy          string     `json:"modified_by"`
 	ProctorResponseURL  *url.URL   `json:"proctor_response_url"`
@@ -151,6 +153,31 @@ func (m *Metadata) UnmarshalJSON(j []byte) error {
 		m.DuaURL = u
 	}
 
+	if finalizedAt, ok := rawStrings["finalized_at"]; ok {
+		ma, ok := finalizedAt.(string)
+		if !ok {
+			msg := fmt.Sprintf("finalized_at is not a string: %+v", rawStrings["finalized_at"])
+			return errors.New(msg)
+		}
+		if ma != "" {
+			t, err := time.Parse(time.RFC3339, ma)
+			if err != nil {
+				msg := fmt.Sprintf("failed to parse finalized_at as time: %+v", t)
+				return errors.New(msg)
+			}
+			m.FinalizedAt = &t
+		}
+	}
+
+	if finalizedBy, ok := rawStrings["finalized_by"]; ok {
+		s, ok := finalizedBy.(string)
+		if !ok {
+			msg := fmt.Sprintf("finalized_by is not a string: %+v", rawStrings["finalized_by"])
+			return errors.New(msg)
+		}
+		m.FinalizedBy = s
+	}
+
 	if modifiedAt, ok := rawStrings["modified_at"]; ok {
 		ma, ok := modifiedAt.(string)
 		if !ok {
@@ -226,6 +253,11 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 		duaURL = m.DuaURL.String()
 	}
 
+	finalizedAt := ""
+	if m.FinalizedAt != nil {
+		finalizedAt = m.FinalizedAt.Format(time.RFC3339)
+	}
+
 	modifiedAt := ""
 	if m.ModifiedAt != nil {
 		modifiedAt = m.ModifiedAt.Format(time.RFC3339)
@@ -247,6 +279,8 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 		DataStorage         string   `json:"data_storage"`
 		Derivative          bool     `json:"derivative"`
 		DuaURL              string   `json:"dua_url"`
+		FinalizedAt         string   `json:"finalized_at"`
+		FinalizedBy         string   `json:"finalized_by"`
 		ModifiedAt          string   `json:"modified_at"`
 		ModifiedBy          string   `json:"modified_by"`
 		ProctorResponseURL  string   `json:"proctor_response_url"`
@@ -262,6 +296,8 @@ func (m Metadata) MarshalJSON() ([]byte, error) {
 		DataStorage:         m.DataStorage,
 		Derivative:          m.Derivative,
 		DuaURL:              duaURL,
+		FinalizedAt:         finalizedAt,
+		FinalizedBy:         m.FinalizedBy,
 		ModifiedAt:          modifiedAt,
 		ModifiedBy:          m.ModifiedBy,
 		ProctorResponseURL:  proctorResponseURL,

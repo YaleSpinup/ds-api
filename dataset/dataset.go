@@ -19,6 +19,7 @@ type Service struct {
 type MetadataRepository interface {
 	Create(ctx context.Context, account, id string, metadata *Metadata) (*Metadata, error)
 	Get(ctx context.Context, account, id string) (*Metadata, error)
+	Promote(ctx context.Context, account, id, user string) (*Metadata, error)
 	Update(ctx context.Context, account, id string, metadata *Metadata) (*Metadata, error)
 	Delete(ctx context.Context, account, id string) error
 }
