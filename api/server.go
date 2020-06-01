@@ -136,7 +136,7 @@ func NewServer(config common.Config) error {
 		Handler:      handler,
 		Addr:         config.ListenAddress,
 		WriteTimeout: 60 * time.Second,
-		ReadTimeout:  15 * time.Second,
+		ReadTimeout:  60 * time.Second,
 	}
 
 	log.Infof("Starting listener on %s", config.ListenAddress)
