@@ -265,8 +265,7 @@ func (s *S3Repository) Promote(ctx context.Context, account, id, user string) (*
 	defer out.Body.Close()
 
 	metadata := &dataset.Metadata{}
-	err = json.NewDecoder(out.Body).Decode(metadata)
-	if err != nil {
+	if err = json.NewDecoder(out.Body).Decode(metadata); err != nil {
 		return nil, apierror.New(apierror.ErrBadRequest, "failed to decode json from s3", err)
 	}
 

@@ -176,10 +176,9 @@ GET /v1/ds/{account}/datasets/{id}
 
 PATCH /v1/ds/{account}/datasets/{id}
 
-```json
-{
-	"modified_by": "awong"
-}
+Headers:
+```
+X-Forwarded-User: awong
 ```
 
 #### Response
@@ -225,11 +224,16 @@ PATCH /v1/ds/{account}/datasets/{id}
 
 PUT /v1/ds/{account}/datasets/{id}
 
+Headers:
+```
+X-Forwarded-User: awong
+```
+
+Request:
 ```json
 {
 	"metadata": {
-		"description": "It's actually a tiny dataset",
-		"modified_by": "awong"
+		"description": "It's actually a tiny dataset"
 	}
 }
 ```

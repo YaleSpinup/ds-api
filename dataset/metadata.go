@@ -154,13 +154,13 @@ func (m *Metadata) UnmarshalJSON(j []byte) error {
 	}
 
 	if finalizedAt, ok := rawStrings["finalized_at"]; ok {
-		ma, ok := finalizedAt.(string)
+		fa, ok := finalizedAt.(string)
 		if !ok {
 			msg := fmt.Sprintf("finalized_at is not a string: %+v", rawStrings["finalized_at"])
 			return errors.New(msg)
 		}
-		if ma != "" {
-			t, err := time.Parse(time.RFC3339, ma)
+		if fa != "" {
+			t, err := time.Parse(time.RFC3339, fa)
 			if err != nil {
 				msg := fmt.Sprintf("failed to parse finalized_at as time: %+v", t)
 				return errors.New(msg)

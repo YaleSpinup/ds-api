@@ -243,6 +243,12 @@ func (s *server) DatasetPromoteHandler(w http.ResponseWriter, r *http.Request) {
 	account := vars["account"]
 	id := vars["id"]
 
+	user := r.Header.Get("X-Forwarded-User")
+	if user == "" {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "X-Forwarded-User header is required", nil))
+		return
+	}
+
 	service, ok := s.datasetServices[account]
 	if !ok {
 		msg := fmt.Sprintf("account not found: %s", account)
@@ -250,24 +256,8 @@ func (s *server) DatasetPromoteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input := struct {
-		ModifiedBy string `json:"modified_by"`
-	}{}
-
-	err := json.NewDecoder(r.Body).Decode(&input)
-	if err != nil {
-		msg := fmt.Sprintf("cannot decode body into promote dataset input: %s", err)
-		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
-		return
-	}
-
-	if input.ModifiedBy == "" {
-		handleError(w, apierror.New(apierror.ErrBadRequest, "modified_by is required", nil))
-		return
-	}
-
 	// finalize repository metadata
-	metadataOutput, err := service.MetadataRepository.Promote(r.Context(), account, id, input.ModifiedBy)
+	metadataOutput, err := service.MetadataRepository.Promote(r.Context(), account, id, user)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -300,6 +290,12 @@ func (s *server) DatasetUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	account := vars["account"]
 	id := vars["id"]
+
+	user := r.Header.Get("X-Forwarded-User")
+	if user == "" {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "X-Forwarded-User header is required", nil))
+		return
+	}
 
 	service, ok := s.datasetServices[account]
 	if !ok {
@@ -334,13 +330,11 @@ func (s *server) DatasetUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metadata.ModifiedBy = user
+
 	// override allowed metadata fields
 	if input.Metadata.Description != "" {
 		metadata.Description = input.Metadata.Description
-	}
-
-	if input.Metadata.ModifiedBy != "" {
-		metadata.ModifiedBy = input.Metadata.ModifiedBy
 	}
 
 	// update metadata
