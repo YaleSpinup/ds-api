@@ -386,6 +386,14 @@ func (i *mockIAMClient) ListAttachedRolePoliciesWithContext(ctx context.Context,
 	return output, nil
 }
 
+func (i *mockIAMClient) ListPolicyVersionsWithContext(ctx context.Context, input *iam.ListPolicyVersionsInput, opts ...request.Option) (*iam.ListPolicyVersionsOutput, error) {
+	if err, ok := i.err["ListPolicyVersionsWithContext"]; ok {
+		return nil, err
+	}
+
+	return &iam.ListPolicyVersionsOutput{}, nil
+}
+
 func (i *mockIAMClient) ListInstanceProfilesForRoleWithContext(ctx context.Context, input *iam.ListInstanceProfilesForRoleInput, opts ...request.Option) (*iam.ListInstanceProfilesForRoleOutput, error) {
 	if err, ok := i.err["ListInstanceProfilesForRoleWithContext"]; ok {
 		return nil, err

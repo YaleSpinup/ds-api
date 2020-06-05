@@ -110,7 +110,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	// create dataset storage location
 	var dataRepoName string
 	log.Infof("provisioning dataset repository for %s", id)
-	dataRepoName, err = dataRepo.Provision(r.Context(), id, input.Derivative, input.Tags)
+	dataRepoName, err = dataRepo.Provision(r.Context(), id, input.Tags)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -125,6 +125,13 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}()
 	})
+
+	// generate dataset access policy
+	log.Infof("provisioning access policy for %s", id)
+	if err = dataRepo.SetPolicy(r.Context(), id, input.Derivative); err != nil {
+		handleError(w, err)
+		return
+	}
 
 	// create metadata in repository
 	log.Infof("adding dataset metadata for %s", id)
@@ -254,6 +261,30 @@ func (s *server) DatasetPromoteHandler(w http.ResponseWriter, r *http.Request) {
 		msg := fmt.Sprintf("account not found: %s", account)
 		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
 		return
+	}
+
+	// get current metadata from repository
+	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// if this is currently a derivative data set that is promoted to original
+	// we update the access policy for the data repository
+	if metadata.Derivative {
+		dataRepo, ok := service.DataRepository[metadata.DataStorage]
+		if !ok {
+			msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadata.DataStorage)
+			handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+			return
+		}
+
+		if err = dataRepo.SetPolicy(r.Context(), id, false); err != nil {
+			msg := fmt.Sprintf("failed to set access policy for dataset %s", id)
+			handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
+			return
+		}
 	}
 
 	// finalize repository metadata

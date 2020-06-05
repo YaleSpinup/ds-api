@@ -207,6 +207,31 @@ func (s *S3Repository) deletePolicy(ctx context.Context, id string) error {
 		}
 	}
 
+	// check and delete any existing (non-default) policy versions
+	policyVersions, err := s.IAM.ListPolicyVersionsWithContext(ctx, &iam.ListPolicyVersionsInput{
+		PolicyArn: aws.String(policyArn),
+	})
+	if err != nil {
+		log.Warnf("failed to list policy versions for "+policyArn, err)
+	}
+
+	if policyVersions != nil {
+		log.Debugf("policy %s has %d versions", policyName, len(policyVersions.Versions))
+
+		for _, v := range policyVersions.Versions {
+			if *v.IsDefaultVersion {
+				continue
+			}
+			log.Debugf("deleting policy %s version %s", policyName, aws.StringValue(v.VersionId))
+			if _, err = s.IAM.DeletePolicyVersionWithContext(ctx, &iam.DeletePolicyVersionInput{
+				PolicyArn: aws.String(policyArn),
+				VersionId: v.VersionId,
+			}); err != nil {
+				log.Warnf("failed to delete policy "+policyName+" version "+aws.StringValue(v.VersionId), err)
+			}
+		}
+	}
+
 	// delete the policy
 	if _, err = s.IAM.DeletePolicyWithContext(ctx, &iam.DeletePolicyInput{PolicyArn: aws.String(policyArn)}); err != nil {
 		return ErrCode("failed to delete policy "+policyArn, err)
@@ -242,6 +267,88 @@ func (s *S3Repository) getPolicyArn(ctx context.Context, name string) (string, e
 	log.Debugf("policy ARN: %s", policyArn)
 
 	return policyArn, nil
+}
+
+// modifyPolicy modifies the existing access policy for the data repository, depending if it's a derivative or not
+func (s *S3Repository) modifyPolicy(ctx context.Context, id string, derivative bool) error {
+	if id == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
+
+	policyName := name
+
+	policyArn, err := s.getPolicyArn(ctx, policyName)
+	if err != nil {
+		return ErrCode("failed to get ARN for policy "+policyName, err)
+	}
+
+	var policyDoc []byte
+
+	if derivative {
+		policyDoc, err = s.derivativeAccessPolicy(name)
+	} else {
+		policyDoc, err = s.originalAccessPolicy(name)
+	}
+	if err != nil {
+		return ErrCode("failed to generate IAM policy for bucket "+name, err)
+	}
+
+	log.Debugf("creating new policy version for bucket '%s'", name)
+
+	// create a new default policy version
+	policyOutput, err := s.IAM.CreatePolicyVersionWithContext(ctx, &iam.CreatePolicyVersionInput{
+		PolicyArn:      aws.String(policyArn),
+		PolicyDocument: aws.String(string(policyDoc)),
+		SetAsDefault:   aws.Bool(true),
+	})
+	if err != nil {
+		return ErrCode("failed to create new IAM policy version", err)
+	}
+
+	log.Debugf("created policy version %s for policy: %s", *policyOutput.PolicyVersion.VersionId, policyArn)
+
+	return nil
+}
+
+// policyExists returns true if there is an IAM access policy for this data repository
+func (s *S3Repository) policyExists(ctx context.Context, id string) (bool, error) {
+	if id == "" {
+		return false, apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
+	}
+
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
+
+	policyName := name
+
+	log.Debugf("checking if access policy exists for bucket '%s'", name)
+
+	policyArn, err := s.getPolicyArn(ctx, policyName)
+	if err != nil {
+		return false, ErrCode("failed to get ARN for policy "+policyName, err)
+	}
+
+	policyExists := true
+	if _, err = s.IAM.GetPolicyWithContext(ctx, &iam.GetPolicyInput{PolicyArn: aws.String(policyArn)}); err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			if aerr.Code() == iam.ErrCodeNoSuchEntityException {
+				policyExists = false
+			} else {
+				return false, ErrCode("failed to get IAM policy "+policyName, err)
+			}
+		} else {
+			return false, ErrCode("failed to get IAM policy "+policyName, err)
+		}
+	}
+
+	return policyExists, nil
 }
 
 // ListAccess lists all instances that have access to the data repository

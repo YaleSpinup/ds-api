@@ -252,8 +252,7 @@ func (s *S3Repository) Describe(ctx context.Context, id string) (*dataset.Reposi
 // 3. Block all public access to the bucket
 // 4. Enable AWS managed serverside encryption (AES-256) for the bucket
 // 5. Add tags to the bucket
-// 6. Create IAM policy for accessing the bucket
-func (s *S3Repository) Provision(ctx context.Context, id string, derivative bool, datasetTags []*dataset.Tag) (string, error) {
+func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*dataset.Tag) (string, error) {
 	if id == "" {
 		return "", apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
@@ -364,13 +363,38 @@ func (s *S3Repository) Provision(ctx context.Context, id string, derivative bool
 		}
 	}
 
-	// create appropriate dataset access policy
-	log.Debugf("creating dataset access policy for %s (derivative: %t)", id, derivative)
-	if err = s.createPolicy(ctx, id, derivative); err != nil {
-		return "", ErrCode("failed to create access policy for s3 bucket "+name, err)
+	return name, nil
+}
+
+// SetPolicy sets (or updates) the IAM access policy for the data repository, depending if it's a derivative or not
+func (s *S3Repository) SetPolicy(ctx context.Context, id string, derivative bool) error {
+	if id == "" {
+		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
-	return name, nil
+	name := id
+	if s.NamePrefix != "" {
+		name = s.NamePrefix + "-" + name
+	}
+
+	exists, err := s.policyExists(ctx, id)
+	if err != nil {
+		return ErrCode("failed to check if policy exists for s3 bucket "+name, err)
+	}
+
+	if exists {
+		log.Infof("modifying existing access policy for bucket %s (derivative: %t)", name, derivative)
+		if err = s.modifyPolicy(ctx, id, derivative); err != nil {
+			return ErrCode("failed to modify access policy for s3 bucket "+name, err)
+		}
+	} else {
+		log.Infof("creating new access policy for bucket %s (derivative: %t)", name, derivative)
+		if err = s.createPolicy(ctx, id, derivative); err != nil {
+			return ErrCode("failed to create access policy for s3 bucket "+name, err)
+		}
+	}
+
+	return nil
 }
 
 // Deprovision satisfies the ability to deprovision a data repository
