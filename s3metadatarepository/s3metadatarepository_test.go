@@ -346,8 +346,208 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestPromote(t *testing.T) {
+	var expectedCode, expectedMessage, id string
+
+	testBucket := "test-bucket"
+	testPrefix := "slash"
+
+	s := S3Repository{
+		S3:     newMockS3Client(t),
+		Bucket: testBucket,
+		Prefix: testPrefix,
+	}
+
+	account := "burn"
+	user := "New Guy"
+
+	// test success
+	id = "2D24607A-38DD-4E11-8A83-5F317ADA24F1"
+	need := &dataset.Metadata{
+		ID:                  "2D24607A-38DD-4E11-8A83-5F317ADA24F1",
+		Name:                "huge-awesome-dataset",
+		Description:         "The hugest dataset of awesome stuff",
+		CreatedAt:           &testTime,
+		CreatedBy:           "Good Guy",
+		DataClassifications: []string{"HIPAA", "PHI"},
+		DataFormat:          "file",
+		DataStorage:         "s3",
+		Derivative:          false,
+		DuaURL:              &url.URL{Scheme: "https", Host: "allmydata.s3.amazonaws.com", Path: "/duas/huge_awesome_dua.pdf"},
+		FinalizedAt:         &testTime,
+		FinalizedBy:         "New Guy",
+		ModifiedAt:          &testTime,
+		ModifiedBy:          "New Guy",
+		ProctorResponseURL:  &url.URL{Scheme: "https", Host: "allmydata.s3.amazonaws.com", Path: "/proctor/huge_awesome_study.json"},
+		SourceIDs:           []string{"e15d2282-9c68-46b5-801c-2b5a62484624", "a7c082ee-f711-48fa-8a57-25c95b3a6ddd"},
+	}
+
+	got, err := s.Promote(context.TODO(), account, id, user)
+	if err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+	if !reflect.DeepEqual(need, got) {
+		t.Errorf("expected: %+v, got: %+v", need, got)
+	}
+
+	// test empty account
+	expectedCode = apierror.ErrBadRequest
+	expectedMessage = "invalid input"
+
+	_, err = s.Promote(context.TODO(), "", id, user)
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != expectedCode {
+			t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+		}
+		if aerr.Message != expectedMessage {
+			t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test empty id
+	id = ""
+	expectedCode = apierror.ErrBadRequest
+	expectedMessage = "invalid input"
+
+	_, err = s.Promote(context.TODO(), account, id, user)
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != expectedCode {
+			t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+		}
+		if aerr.Message != expectedMessage {
+			t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test object update failure
+	id = "2D24607A-38DD-4E11-8A83-5F317ADA24F1"
+	expectedCode = apierror.ErrServiceUnavailable
+	expectedMessage = fmt.Sprintf("failed to put s3 metadata object: %s/%s/%s", testPrefix, account, id)
+	s.S3.(*mockS3Client).err["PutObjectWithContext"] = awserr.New("InternalError", "Internal Error", nil)
+
+	_, err = s.Promote(context.TODO(), account, id, user)
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != expectedCode {
+			t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+		}
+		if aerr.Message != expectedMessage {
+			t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+}
+
 func TestUpdate(t *testing.T) {
-	t.Log("TODO")
+	var expectedCode, expectedMessage, id string
+
+	testBucket := "test-bucket"
+	testPrefix := "slash"
+	testMetadata := &dataset.Metadata{
+		ID:                  "2D24607A-38DD-4E11-8A83-5F317ADA24F1",
+		Name:                "huge-awesome-dataset",
+		Description:         "The hugest dataset of awesome stuff",
+		CreatedAt:           &testTime,
+		CreatedBy:           "Good Guy",
+		DataClassifications: []string{"HIPAA", "PHI"},
+		DataFormat:          "file",
+		DataStorage:         "s3",
+		Derivative:          false,
+		DuaURL:              &url.URL{Scheme: "https", Host: "allmydata.s3.amazonaws.com", Path: "/duas/huge_awesome_dua.pdf"},
+		ModifiedBy:          "Bad Guy",
+		ProctorResponseURL:  &url.URL{Scheme: "https", Host: "allmydata.s3.amazonaws.com", Path: "/proctor/huge_awesome_study.json"},
+		SourceIDs:           []string{"e15d2282-9c68-46b5-801c-2b5a62484624", "a7c082ee-f711-48fa-8a57-25c95b3a6ddd"},
+	}
+
+	s := S3Repository{
+		S3:     newMockS3Client(t),
+		Bucket: testBucket,
+		Prefix: testPrefix,
+	}
+
+	account := "burn"
+
+	// test success
+	id = "2D24607A-38DD-4E11-8A83-5F317ADA24F1"
+	need := &dataset.Metadata{
+		ID:                  "2D24607A-38DD-4E11-8A83-5F317ADA24F1",
+		Name:                "huge-awesome-dataset",
+		Description:         "The hugest dataset of awesome stuff",
+		CreatedAt:           &testTime,
+		CreatedBy:           "Good Guy",
+		DataClassifications: []string{"HIPAA", "PHI"},
+		DataFormat:          "file",
+		DataStorage:         "s3",
+		Derivative:          false,
+		DuaURL:              &url.URL{Scheme: "https", Host: "allmydata.s3.amazonaws.com", Path: "/duas/huge_awesome_dua.pdf"},
+		ModifiedAt:          &testTime,
+		ModifiedBy:          "Bad Guy",
+		ProctorResponseURL:  &url.URL{Scheme: "https", Host: "allmydata.s3.amazonaws.com", Path: "/proctor/huge_awesome_study.json"},
+		SourceIDs:           []string{"e15d2282-9c68-46b5-801c-2b5a62484624", "a7c082ee-f711-48fa-8a57-25c95b3a6ddd"},
+	}
+
+	got, err := s.Update(context.TODO(), account, id, testMetadata)
+	if err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+	if !reflect.DeepEqual(need, got) {
+		t.Errorf("expected: %+v, got: %+v", need, got)
+	}
+
+	// test empty account
+	expectedCode = apierror.ErrBadRequest
+	expectedMessage = "invalid input"
+
+	_, err = s.Update(context.TODO(), "", id, testMetadata)
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != expectedCode {
+			t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+		}
+		if aerr.Message != expectedMessage {
+			t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test empty id
+	id = ""
+	expectedCode = apierror.ErrBadRequest
+	expectedMessage = "invalid input"
+
+	_, err = s.Update(context.TODO(), account, id, testMetadata)
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != expectedCode {
+			t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+		}
+		if aerr.Message != expectedMessage {
+			t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test object update failure
+	id = "2D24607A-38DD-4E11-8A83-5F317ADA24F1"
+	expectedCode = apierror.ErrServiceUnavailable
+	expectedMessage = fmt.Sprintf("failed to put s3 metadata object: %s/%s/%s", testPrefix, account, id)
+	s.S3.(*mockS3Client).err["PutObjectWithContext"] = awserr.New("InternalError", "Internal Error", nil)
+
+	_, err = s.Update(context.TODO(), account, id, testMetadata)
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != expectedCode {
+			t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+		}
+		if aerr.Message != expectedMessage {
+			t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
 }
 
 func TestDelete(t *testing.T) {
