@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 )
@@ -532,6 +533,95 @@ func TestDelete(t *testing.T) {
 	s.S3.(*mockS3Client).err["DeleteBucketWithContext"] = errors.New("things blowing up")
 
 	err = s.Delete(context.TODO(), id)
+	if err == nil {
+		t.Error("expected error, got: nil")
+	} else {
+		if aerr, ok := err.(apierror.Error); ok {
+			if aerr.Code != expectedCode {
+				t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+			}
+			if aerr.Message != expectedMessage {
+				t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+			}
+		} else {
+			t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+		}
+	}
+}
+
+func TestSetPolicy(t *testing.T) {
+	var expectedCode, expectedMessage string
+
+	id := "68004EEC-6044-45C9-91E5-AF836DCD9234"
+
+	// test success, derivative, policy exists
+	s := S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
+	err := s.SetPolicy(context.TODO(), id, true)
+	if err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+
+	// test success, not derivative, policy exists
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
+	if err = s.SetPolicy(context.TODO(), id, false); err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+
+	// test success, derivative, policy doesn't exist
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
+	s.IAM.(*mockIAMClient).err["GetPolicyWithContext"] = awserr.New(iam.ErrCodeNoSuchEntityException, "policy not found", nil)
+	if err = s.SetPolicy(context.TODO(), id, true); err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+
+	// test success, not derivative, policy doesn't exist
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
+	s.IAM.(*mockIAMClient).err["GetPolicyWithContext"] = awserr.New(iam.ErrCodeNoSuchEntityException, "policy not found", nil)
+	if err = s.SetPolicy(context.TODO(), id, false); err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+
+	// test empty id
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
+	err = s.SetPolicy(context.TODO(), "", false)
+	if aerr, ok := err.(apierror.Error); ok {
+		if aerr.Code != apierror.ErrBadRequest {
+			t.Errorf("expected error code %s, got: %s", apierror.ErrBadRequest, aerr.Code)
+		}
+	} else {
+		t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+	}
+
+	// test CreatePolicyVersionWithContext (create) fail
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
+	expectedCode = apierror.ErrInternalError
+	expectedMessage = fmt.Sprintf("failed to create access policy for s3 bucket dataset-%s", id)
+	s.IAM.(*mockIAMClient).err["GetPolicyWithContext"] = awserr.New(iam.ErrCodeNoSuchEntityException, "policy not found", nil)
+	s.IAM.(*mockIAMClient).err["CreatePolicyWithContext"] = errors.New("things blowing up")
+
+	err = s.SetPolicy(context.TODO(), id, false)
+	if err == nil {
+		t.Error("expected error, got: nil")
+	} else {
+		if aerr, ok := err.(apierror.Error); ok {
+			if aerr.Code != expectedCode {
+				t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+			}
+			if aerr.Message != expectedMessage {
+				t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+			}
+		} else {
+			t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+		}
+	}
+
+	// test CreatePolicyVersionWithContext (modify) fail
+	s = S3Repository{NamePrefix: "dataset", IAM: newMockIAMClient(t), S3: newMockS3Client(t), STS: newMockSTSClient(t)}
+	expectedCode = apierror.ErrInternalError
+	expectedMessage = fmt.Sprintf("failed to modify access policy for s3 bucket dataset-%s", id)
+	s.IAM.(*mockIAMClient).err["CreatePolicyVersionWithContext"] = errors.New("things blowing up")
+
+	err = s.SetPolicy(context.TODO(), id, false)
 	if err == nil {
 		t.Error("expected error, got: nil")
 	} else {
