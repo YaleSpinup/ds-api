@@ -19,18 +19,16 @@ RUN go build -o /app/api.out -ldflags="-X main.Version=$version -X main.VersionP
 RUN /app/api.out -version
 
 # final stage
-FROM python:3-alpine
+FROM alpine
 
 WORKDIR /app
 COPY --from=build-env /app/api.out /app/api
 RUN chmod 555 /app/api
 
-RUN apk add --no-cache bash ca-certificates && \
-    pip3 install awscli --upgrade && \
-    aws --version
+RUN apk add --no-cache bash ca-certificates
 
 # Install Deco
-ARG DECO_VERSION=0.3.1
+ARG DECO_VERSION=0.4.1
 ARG DECO_OS=linux
 ARG DECO_ARCH=amd64
 ADD https://github.com/YaleUniversity/deco/releases/download/v${DECO_VERSION}/deco-v${DECO_VERSION}-${DECO_OS}-${DECO_ARCH} /usr/local/bin/deco
