@@ -896,6 +896,14 @@ func (s *S3Repository) derivativeAccessPolicy(bucket string) ([]byte, error) {
 					"s3:PutObject",
 				},
 			},
+			PolicyStatement{
+				Resource: []string{fmt.Sprintf("arn:aws:s3:::%s/_attachments/*", bucket)},
+				Effect:   "Deny",
+				Action: []string{
+					"s3:DeleteObject",
+					"s3:PutObject",
+				},
+			},
 		},
 	})
 
