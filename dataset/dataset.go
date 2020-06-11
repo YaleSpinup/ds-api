@@ -19,16 +19,18 @@ type Service struct {
 type MetadataRepository interface {
 	Create(ctx context.Context, account, id string, metadata *Metadata) (*Metadata, error)
 	Get(ctx context.Context, account, id string) (*Metadata, error)
+	Promote(ctx context.Context, account, id, user string) (*Metadata, error)
 	Update(ctx context.Context, account, id string, metadata *Metadata) (*Metadata, error)
 	Delete(ctx context.Context, account, id string) error
 }
 
 // DataRepository is an interface for data repository
 type DataRepository interface {
-	Provision(ctx context.Context, id string, derivative bool, tags []*Tag) (string, error)
+	Provision(ctx context.Context, id string, tags []*Tag) (string, error)
 	Deprovision(ctx context.Context, id string) error
 	Delete(ctx context.Context, id string) error
 	Describe(ctx context.Context, id string) (*Repository, error)
+	SetPolicy(ctx context.Context, id string, derivative bool) error
 	GrantAccess(ctx context.Context, id, instanceID string) (Access, error)
 	ListAccess(ctx context.Context, id string) (Access, error)
 	RevokeAccess(ctx context.Context, id, instanceID string) error

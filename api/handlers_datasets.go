@@ -110,7 +110,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	// create dataset storage location
 	var dataRepoName string
 	log.Infof("provisioning dataset repository for %s", id)
-	dataRepoName, err = dataRepo.Provision(r.Context(), id, input.Derivative, input.Tags)
+	dataRepoName, err = dataRepo.Provision(r.Context(), id, input.Tags)
 	if err != nil {
 		handleError(w, err)
 		return
@@ -125,6 +125,13 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}()
 	})
+
+	// generate dataset access policy
+	log.Infof("provisioning access policy for %s", id)
+	if err = dataRepo.SetPolicy(r.Context(), id, input.Derivative); err != nil {
+		handleError(w, err)
+		return
+	}
 
 	// create metadata in repository
 	log.Infof("adding dataset metadata for %s", id)
@@ -168,7 +175,7 @@ func (s *server) DatasetListHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte{})
 }
 
-// DatasetShowHandler returns information about a a dataset
+// DatasetShowHandler returns information about a dataset
 func (s *server) DatasetShowHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
@@ -234,17 +241,159 @@ func (s *server) DatasetShowHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(j)
 }
 
+// DatasetPromoteHandler promotes a dataset
+// If this is an original dataset, it will be finalized (if not already finalized)
+// If this is a derivative, it will be promoted to an original and instantly finalized
+func (s *server) DatasetPromoteHandler(w http.ResponseWriter, r *http.Request) {
+	w = LogWriter{w}
+	vars := mux.Vars(r)
+	account := vars["account"]
+	id := vars["id"]
+
+	user := r.Header.Get("X-Forwarded-User")
+	if user == "" {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "X-Forwarded-User header is required", nil))
+		return
+	}
+
+	service, ok := s.datasetServices[account]
+	if !ok {
+		msg := fmt.Sprintf("account not found: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
+
+	// get current metadata from repository
+	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// if this is currently a derivative data set that is promoted to original
+	// we update the access policy for the data repository
+	if metadata.Derivative {
+		dataRepo, ok := service.DataRepository[metadata.DataStorage]
+		if !ok {
+			msg := fmt.Sprintf("requested data repository type not supported for this account: %s", metadata.DataStorage)
+			handleError(w, apierror.New(apierror.ErrBadRequest, msg, nil))
+			return
+		}
+
+		if err = dataRepo.SetPolicy(r.Context(), id, false); err != nil {
+			msg := fmt.Sprintf("failed to set access policy for dataset %s", id)
+			handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
+			return
+		}
+	}
+
+	// finalize repository metadata
+	metadataOutput, err := service.MetadataRepository.Promote(r.Context(), account, id, user)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	output := struct {
+		ID       string            `json:"id"`
+		Metadata *dataset.Metadata `json:"metadata"`
+	}{
+		id,
+		metadataOutput,
+	}
+
+	j, err := json.Marshal(&output)
+	if err != nil {
+		msg := fmt.Sprintf("cannot encode dataset output into json: %s", err)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
+}
+
+// DatasetUpdateHandler updates metadata for a dataset
+// Only the following fields can be updated: Description, ModifiedBy
 func (s *server) DatasetUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
-	dataset := vars["id"]
+	id := vars["id"]
 
-	log.Debugf("updating data set %s for account %s", dataset, account)
+	user := r.Header.Get("X-Forwarded-User")
+	if user == "" {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "X-Forwarded-User header is required", nil))
+		return
+	}
+
+	service, ok := s.datasetServices[account]
+	if !ok {
+		msg := fmt.Sprintf("account not found: %s", account)
+		handleError(w, apierror.New(apierror.ErrNotFound, msg, nil))
+		return
+	}
+
+	// TODO: currently we only support updating the metadata for a dataset, eventually we should update tags as well
+	input := struct {
+		Metadata *dataset.Metadata `json:"metadata"`
+	}{}
+
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		msg := fmt.Sprintf("cannot decode body into update dataset input: %s", err)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+		return
+	}
+
+	if input.Metadata == nil {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "dataset metadata is required", nil))
+		return
+	}
+
+	log.Debugf("updating data set %s for account %s", id, account)
+
+	// get current metadata from repository
+	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	metadata.ModifiedBy = user
+
+	// override allowed metadata fields
+	if input.Metadata.Description != "" {
+		metadata.Description = input.Metadata.Description
+	}
+
+	// update metadata
+	metadataOutput, err := service.MetadataRepository.Update(r.Context(), account, id, metadata)
+	if err != nil {
+		msg := fmt.Sprintf("failed to delete metadata for dataset %s", id)
+		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
+		return
+	}
+
+	output := struct {
+		ID       string            `json:"id"`
+		Metadata *dataset.Metadata `json:"metadata"`
+	}{
+		id,
+		metadataOutput,
+	}
+
+	j, err := json.Marshal(&output)
+	if err != nil {
+		msg := fmt.Sprintf("cannot encode dataset output into json: %s", err)
+		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotImplemented)
-	w.Write([]byte{})
+	w.WriteHeader(http.StatusOK)
+	w.Write(j)
 }
 
 func (s *server) DatasetDeleteHandler(w http.ResponseWriter, r *http.Request) {

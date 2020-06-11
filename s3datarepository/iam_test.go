@@ -263,6 +263,20 @@ func (i *mockIAMClient) CreatePolicyWithContext(ctx context.Context, input *iam.
 	return &iam.CreatePolicyOutput{Policy: output}, nil
 }
 
+func (i *mockIAMClient) CreatePolicyVersionWithContext(ctx context.Context, input *iam.CreatePolicyVersionInput, opts ...request.Option) (*iam.CreatePolicyVersionOutput, error) {
+	if err, ok := i.err["CreatePolicyVersionWithContext"]; ok {
+		return nil, err
+	}
+
+	output := &iam.PolicyVersion{
+		CreateDate:       &testTime,
+		IsDefaultVersion: input.SetAsDefault,
+		VersionId:        aws.String("v2"),
+	}
+
+	return &iam.CreatePolicyVersionOutput{PolicyVersion: output}, nil
+}
+
 func (i *mockIAMClient) CreateRoleWithContext(ctx context.Context, input *iam.CreateRoleInput, opts ...request.Option) (*iam.CreateRoleOutput, error) {
 	if err, ok := i.err["CreateRoleWithContext"]; ok {
 		return nil, err
@@ -336,6 +350,23 @@ func (i *mockIAMClient) GetInstanceProfileWithContext(ctx context.Context, input
 	return output, nil
 }
 
+func (i *mockIAMClient) GetPolicyWithContext(ctx context.Context, input *iam.GetPolicyInput, opts ...request.Option) (*iam.GetPolicyOutput, error) {
+	if err, ok := i.err["GetPolicyWithContext"]; ok {
+		return nil, err
+	}
+
+	output := &iam.GetPolicyOutput{Policy: &iam.Policy{
+		Arn:         input.PolicyArn,
+		CreateDate:  &testTime,
+		Description: aws.String("Test policy"),
+		Path:        aws.String("/test/"),
+		PolicyId:    aws.String("TESTPOLICYID123"),
+		PolicyName:  input.PolicyArn,
+	}}
+
+	return output, nil
+}
+
 func (i *mockIAMClient) GetRoleWithContext(ctx context.Context, input *iam.GetRoleInput, opts ...request.Option) (*iam.GetRoleOutput, error) {
 	if err, ok := i.err["GetRoleWithContext"]; ok {
 		return nil, err
@@ -384,6 +415,14 @@ func (i *mockIAMClient) ListAttachedRolePoliciesWithContext(ctx context.Context,
 	}
 
 	return output, nil
+}
+
+func (i *mockIAMClient) ListPolicyVersionsWithContext(ctx context.Context, input *iam.ListPolicyVersionsInput, opts ...request.Option) (*iam.ListPolicyVersionsOutput, error) {
+	if err, ok := i.err["ListPolicyVersionsWithContext"]; ok {
+		return nil, err
+	}
+
+	return &iam.ListPolicyVersionsOutput{}, nil
 }
 
 func (i *mockIAMClient) ListInstanceProfilesForRoleWithContext(ctx context.Context, input *iam.ListInstanceProfilesForRoleInput, opts ...request.Option) (*iam.ListInstanceProfilesForRoleOutput, error) {

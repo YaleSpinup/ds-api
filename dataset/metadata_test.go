@@ -21,6 +21,8 @@ func TestMetadataUnmarshalJSON(t *testing.T) {
 		"data_storage": "s3",
 		"derivative": false,
 		"dua_url": "https://allmydata.s3.amazonaws.com/duas/alien_dua.pdf",
+		"finalized_at": "2013-06-21T10:10:01.123Z",
+		"finalized_by": "zbrannigan",
 		"modified_at": "2015-11-21T04:19:01.123Z",
 		"modified_by": "kkroker",
 		"proctor_response_url": "https://allmydata.s3.amazonaws.com/proctor/alien_study.json",
@@ -32,6 +34,7 @@ func TestMetadataUnmarshalJSON(t *testing.T) {
 	}`)
 
 	var createdAt, _ = time.Parse(time.RFC3339, "2013-06-19T19:14:01.123Z")
+	var finalizedAt, _ = time.Parse(time.RFC3339, "2013-06-21T10:10:01.123Z")
 	var modifiedAt, _ = time.Parse(time.RFC3339, "2015-11-21T04:19:01.123Z")
 	var duaURL, _ = url.Parse("https://allmydata.s3.amazonaws.com/duas/alien_dua.pdf")
 	var procURL, _ = url.Parse("https://allmydata.s3.amazonaws.com/proctor/alien_study.json")
@@ -46,6 +49,8 @@ func TestMetadataUnmarshalJSON(t *testing.T) {
 		DataStorage:         "s3",
 		Derivative:          false,
 		DuaURL:              duaURL,
+		FinalizedAt:         &finalizedAt,
+		FinalizedBy:         "zbrannigan",
 		ModifiedAt:          &modifiedAt,
 		ModifiedBy:          "kkroker",
 		ProctorResponseURL:  procURL,
@@ -126,6 +131,21 @@ func TestMetadataUnmarshalJSON(t *testing.T) {
 		t.Error("expected error for bad dua_url, got nil")
 	}
 
+	// finalized_at type
+	if err := out.UnmarshalJSON([]byte(`{"finalized_at":false}`)); err == nil {
+		t.Error("expected error for bad finalized_at, got nil")
+	}
+
+	// finalized_at date type
+	if err := out.UnmarshalJSON([]byte(`{"finalized_at":"12345"}`)); err == nil {
+		t.Error("expected error for bad finalized_at, got nil")
+	}
+
+	// finalized_by type
+	if err := out.UnmarshalJSON([]byte(`{"finalized_by":false}`)); err == nil {
+		t.Error("expected error for bad finalized_by, got nil")
+	}
+
 	// modified_at type
 	if err := out.UnmarshalJSON([]byte(`{"modified_at":false}`)); err == nil {
 		t.Error("expected error for bad modified_at, got nil")
@@ -166,6 +186,7 @@ func TestMetadataMarshalJSON(t *testing.T) {
 	}
 
 	createdAt, _ := time.Parse(time.RFC3339, "2013-06-19T19:14:01.123Z")
+	finalizedAt, _ := time.Parse(time.RFC3339, "2013-06-21T10:10:01.123Z")
 	modifiedAt, _ := time.Parse(time.RFC3339, "2015-11-21T04:19:01.123Z")
 	duaURL, _ := url.Parse("https://allmydata.s3.amazonaws.com/duas/alien_dua.pdf")
 	procURL, _ := url.Parse("https://allmydata.s3.amazonaws.com/proctor/alien_study.json")
@@ -173,7 +194,7 @@ func TestMetadataMarshalJSON(t *testing.T) {
 	tests := []test{
 		test{
 			Metadata{},
-			[]byte(`{"id":"","name":"","description":"","created_at":"","created_by":"","data_classifications":null,"data_format":"","data_storage":"","derivative":false,"dua_url":"","modified_at":"","modified_by":"","proctor_response_url":"","source_ids":null}`),
+			[]byte(`{"id":"","name":"","description":"","created_at":"","created_by":"","data_classifications":null,"data_format":"","data_storage":"","derivative":false,"dua_url":"","finalized_at":"","finalized_by":"","modified_at":"","modified_by":"","proctor_response_url":"","source_ids":null}`),
 			nil,
 		},
 		test{
@@ -188,6 +209,8 @@ func TestMetadataMarshalJSON(t *testing.T) {
 				DataStorage:         "s3",
 				Derivative:          false,
 				DuaURL:              duaURL,
+				FinalizedAt:         &finalizedAt,
+				FinalizedBy:         "zbrannigan",
 				ModifiedAt:          &modifiedAt,
 				ModifiedBy:          "kkroker",
 				ProctorResponseURL:  procURL,
@@ -197,7 +220,7 @@ func TestMetadataMarshalJSON(t *testing.T) {
 					"c00925d6-2eef-4fb6-aef1-87152613222c",
 				},
 			},
-			[]byte(`{"id":"08d754ba-8540-4fdc-92f3-47950c1cdb1c","name":"alien-sightings-dataset","description":"Alien sightings","created_at":"2013-06-19T19:14:01Z","created_by":"zbrannigan","data_classifications":["extremelyclassified"],"data_format":"file","data_storage":"s3","derivative":false,"dua_url":"https://allmydata.s3.amazonaws.com/duas/alien_dua.pdf","modified_at":"2015-11-21T04:19:01Z","modified_by":"kkroker","proctor_response_url":"https://allmydata.s3.amazonaws.com/proctor/alien_study.json","source_ids":["ea19d935-6ca3-4711-8e3e-24713cc3ac00","801e1c4f-58ff-4f14-af1f-0fd6a09cdaef","c00925d6-2eef-4fb6-aef1-87152613222c"]}`),
+			[]byte(`{"id":"08d754ba-8540-4fdc-92f3-47950c1cdb1c","name":"alien-sightings-dataset","description":"Alien sightings","created_at":"2013-06-19T19:14:01Z","created_by":"zbrannigan","data_classifications":["extremelyclassified"],"data_format":"file","data_storage":"s3","derivative":false,"dua_url":"https://allmydata.s3.amazonaws.com/duas/alien_dua.pdf","finalized_at":"2013-06-21T10:10:01Z","finalized_by":"zbrannigan","modified_at":"2015-11-21T04:19:01Z","modified_by":"kkroker","proctor_response_url":"https://allmydata.s3.amazonaws.com/proctor/alien_study.json","source_ids":["ea19d935-6ca3-4711-8e3e-24713cc3ac00","801e1c4f-58ff-4f14-af1f-0fd6a09cdaef","c00925d6-2eef-4fb6-aef1-87152613222c"]}`),
 			nil,
 		},
 	}
