@@ -26,7 +26,8 @@ var testConfig = []byte(
 				"config": {
 					"region": "us-east-1",
 					"akid": "key1",
-					"secret": "secret1"
+					"secret": "secret1",
+					"loggingBucket": "dsapi-provider1-access-logs"
 				}
 		  },
 		  "provider2": {
@@ -34,7 +35,8 @@ var testConfig = []byte(
 				"config": {
 					"region": "us-west-1",
 					"akid": "key2",
-					"secret": "secret2"
+					"secret": "secret2",
+					"loggingBucket": "dsapi-provider2-access-logs"
 				}
 		  }
 		},
@@ -52,17 +54,19 @@ func TestReadConfig(t *testing.T) {
 			"provider1": Account{
 				StorageProviders: []string{"s3"},
 				Config: map[string]interface{}{
-					"region": "us-east-1",
-					"akid":   "key1",
-					"secret": "secret1",
+					"region":        "us-east-1",
+					"akid":          "key1",
+					"secret":        "secret1",
+					"loggingBucket": "dsapi-provider1-access-logs",
 				},
 			},
 			"provider2": Account{
 				StorageProviders: []string{"s3"},
 				Config: map[string]interface{}{
-					"region": "us-west-1",
-					"akid":   "key2",
-					"secret": "secret2",
+					"region":        "us-west-1",
+					"akid":          "key2",
+					"secret":        "secret2",
+					"loggingBucket": "dsapi-provider2-access-logs",
 				},
 			},
 		},

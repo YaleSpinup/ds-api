@@ -16,7 +16,8 @@
       "config": {
         "region": "us-east-1",
         "akid": "xxxxxxxxxxxxxxxxxxxxxxxx",
-        "secret": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+        "secret": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "loggingBucket": "dsapi-someaccount-access-logs"
       }
     }
   },

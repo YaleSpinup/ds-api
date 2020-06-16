@@ -108,12 +108,14 @@ func (m *mockS3Client) PutPublicAccessBlockWithContext(ctx context.Context, inpu
 
 func TestNewDefaultRepository(t *testing.T) {
 	testConfig := map[string]interface{}{
-		"region":   "us-east-1",
-		"akid":     "xxxxx",
-		"secret":   "yyyyy",
-		"endpoint": "https://under.mydesk.amazonaws.com",
+		"region":        "us-east-1",
+		"akid":          "xxxxx",
+		"secret":        "yyyyy",
+		"endpoint":      "https://under.mydesk.amazonaws.com",
+		"loggingBucket": "dsapi-test-access-logs",
 	}
 
+	expectedLoggingBucketPrefix := "datasets"
 	expectedIAMPathPrefix := "/spinup/dataset/"
 
 	s, err := NewDefaultRepository(testConfig)
@@ -135,6 +137,14 @@ func TestNewDefaultRepository(t *testing.T) {
 
 	if s.config.Endpoint == nil {
 		t.Error("expected config Endpoint to be set, got nil")
+	}
+
+	if s.LoggingBucket == "" {
+		t.Error("expected LoggingBucket to be set, got empty")
+	}
+
+	if s.LoggingBucketPrefix != expectedLoggingBucketPrefix {
+		t.Errorf("expected LoggingBucketPrefix to be '%s', got '%s'", expectedLoggingBucketPrefix, s.LoggingBucketPrefix)
 	}
 
 	if s.IAMPathPrefix != expectedIAMPathPrefix {

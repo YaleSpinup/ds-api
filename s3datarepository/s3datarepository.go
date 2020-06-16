@@ -32,19 +32,21 @@ type S3RepositoryOption func(*S3Repository)
 
 // S3Repository is an implementation of a data respository in S3
 type S3Repository struct {
-	NamePrefix    string
-	IAMPathPrefix string
-	EC2           ec2iface.EC2API
-	IAM           iamiface.IAMAPI
-	S3            s3iface.S3API
-	S3Uploader    s3manageriface.UploaderAPI
-	STS           stsiface.STSAPI
-	config        *aws.Config
+	NamePrefix          string
+	IAMPathPrefix       string
+	LoggingBucket       string
+	LoggingBucketPrefix string
+	EC2                 ec2iface.EC2API
+	IAM                 iamiface.IAMAPI
+	S3                  s3iface.S3API
+	S3Uploader          s3manageriface.UploaderAPI
+	STS                 stsiface.STSAPI
+	config              *aws.Config
 }
 
 // NewDefaultRepository creates a new repository from the default config data
 func NewDefaultRepository(config map[string]interface{}) (*S3Repository, error) {
-	var akid, secret, token, region, endpoint string
+	var akid, secret, token, region, endpoint, loggingBucket string
 	if v, ok := config["akid"].(string); ok {
 		akid = v
 	}
@@ -65,6 +67,10 @@ func NewDefaultRepository(config map[string]interface{}) (*S3Repository, error) 
 		endpoint = v
 	}
 
+	if v, ok := config["loggingBucket"].(string); ok {
+		loggingBucket = v
+	}
+
 	opts := []S3RepositoryOption{
 		WithStaticCredentials(akid, secret, token),
 	}
@@ -75,6 +81,11 @@ func NewDefaultRepository(config map[string]interface{}) (*S3Repository, error) 
 
 	if endpoint != "" {
 		opts = append(opts, WithEndpoint(endpoint))
+	}
+
+	if loggingBucket != "" {
+		opts = append(opts, WithLoggingBucket(loggingBucket))
+		opts = append(opts, WithLoggingBucketPrefix("datasets"))
 	}
 
 	// set default IAMPathPrefix
@@ -137,17 +148,19 @@ func WithIAMPathPrefix(prefix string) S3RepositoryOption {
 	}
 }
 
-// func WithLoggingBucket(bucket string) S3RepositoryOption {
-// 	return func(s *S3Repository) {
-// 		s.LoggingBucket = bucket
-// 	}
-// }
+// WithLoggingBucket sets the access logs bucket for the S3Repository
+func WithLoggingBucket(bucket string) S3RepositoryOption {
+	return func(s *S3Repository) {
+		s.LoggingBucket = bucket
+	}
+}
 
-// func WithLoggingBucketPrefix(prefix string) S3RepositoryOption {
-// 	return func(s *S3Repository) {
-// 		s.LoggingBucketPrefix = prefix
-// 	}
-// }
+// WithLoggingBucketPrefix sets the access logs bucket prefix for the S3Repository
+func WithLoggingBucketPrefix(prefix string) S3RepositoryOption {
+	return func(s *S3Repository) {
+		s.LoggingBucketPrefix = prefix
+	}
+}
 
 // bucketEmpty lists the objects in a bucket with a max of 1, if there are any objects returned, we return false
 func (s *S3Repository) bucketEmpty(ctx context.Context, bucketName string) (bool, error) {
@@ -251,7 +264,8 @@ func (s *S3Repository) Describe(ctx context.Context, id string) (*dataset.Reposi
 // 2. Create the bucket and wait for it to be successfully created
 // 3. Block all public access to the bucket
 // 4. Enable AWS managed serverside encryption (AES-256) for the bucket
-// 5. Add tags to the bucket
+// 5. Enable server access logging for the bucket, if LoggingBucket specified
+// 6. Add tags to the bucket
 func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*dataset.Tag) (string, error) {
 	if id == "" {
 		return "", apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
@@ -294,9 +308,10 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 
 	// create s3 bucket
 	log.Debugf("creating s3 bucket: %s", name)
-	if _, err = s.S3.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+	_, err = s.S3.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
 		Bucket: aws.String(name),
-	}); err != nil {
+	})
+	if err != nil {
 		return "", ErrCode("failed to create s3 bucket "+name, err)
 	}
 
@@ -312,9 +327,10 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 	})
 
 	// wait for bucket to exist
-	if err = s.S3.WaitUntilBucketExistsWithContext(ctx, &s3.HeadBucketInput{Bucket: aws.String(name)},
+	err = s.S3.WaitUntilBucketExistsWithContext(ctx, &s3.HeadBucketInput{Bucket: aws.String(name)},
 		request.WithWaiterDelay(request.ConstantWaiterDelay(2*time.Second)),
-	); err != nil {
+	)
+	if err != nil {
 		msg := fmt.Sprintf("failed to create bucket %s, timeout waiting for create: %s", name, err.Error())
 		return "", apierror.New(apierror.ErrInternalError, msg, err)
 	}
@@ -323,7 +339,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 
 	// block public access
 	log.Debugf("blocking all public access for bucket: %s", name)
-	if _, err = s.S3.PutPublicAccessBlockWithContext(ctx, &s3.PutPublicAccessBlockInput{
+	_, err = s.S3.PutPublicAccessBlockWithContext(ctx, &s3.PutPublicAccessBlockInput{
 		Bucket: aws.String(name),
 		PublicAccessBlockConfiguration: &s3.PublicAccessBlockConfiguration{
 			BlockPublicAcls:       aws.Bool(true),
@@ -331,13 +347,14 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 			IgnorePublicAcls:      aws.Bool(true),
 			RestrictPublicBuckets: aws.Bool(true),
 		},
-	}); err != nil {
+	})
+	if err != nil {
 		return "", ErrCode("failed to block public access for s3 bucket "+name, err)
 	}
 
 	// enable AWS managed serverside encryption for the bucket
 	log.Debugf("enabling s3 encryption for bucket: %s", name)
-	if _, err = s.S3.PutBucketEncryptionWithContext(ctx, &s3.PutBucketEncryptionInput{
+	_, err = s.S3.PutBucketEncryptionWithContext(ctx, &s3.PutBucketEncryptionInput{
 		Bucket: aws.String(name),
 		ServerSideEncryptionConfiguration: &s3.ServerSideEncryptionConfiguration{
 			Rules: []*s3.ServerSideEncryptionRule{
@@ -348,17 +365,38 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 				},
 			},
 		},
-	}); err != nil {
+	})
+	if err != nil {
 		return "", ErrCode("failed to enable encryption for s3 bucket "+name, err)
+	}
+
+	// enable access logging for the bucket to a central repo if the logging bucket is set
+	if s.LoggingBucket != "" {
+		log.Debugf("enabling server access logging for bucket: %s", name)
+		_, err = s.S3.PutBucketLoggingWithContext(ctx, &s3.PutBucketLoggingInput{
+			Bucket: aws.String(name),
+			BucketLoggingStatus: &s3.BucketLoggingStatus{
+				LoggingEnabled: &s3.LoggingEnabled{
+					TargetBucket: aws.String(s.LoggingBucket),
+					TargetPrefix: aws.String(s.LoggingBucketPrefix),
+				},
+			},
+		})
+		if err != nil {
+			return "", ErrCode("failed to enable access logging for s3 bucket "+name, err)
+		}
+	} else {
+		log.Warnf("not enabling server access logging for bucket %s, configure loggingBucket in account config", name)
 	}
 
 	// add tags
 	if len(tags) > 0 {
 		log.Debugf("adding tags for bucket '%s': %+v", name, tags)
-		if _, err = s.S3.PutBucketTaggingWithContext(ctx, &s3.PutBucketTaggingInput{
+		_, err = s.S3.PutBucketTaggingWithContext(ctx, &s3.PutBucketTaggingInput{
 			Bucket:  aws.String(name),
 			Tagging: &s3.Tagging{TagSet: tags},
-		}); err != nil {
+		})
+		if err != nil {
 			return "", ErrCode("failed to tag s3 bucket "+name, err)
 		}
 	}
