@@ -92,6 +92,13 @@ func (m *mockS3Client) PutBucketEncryptionWithContext(ctx context.Context, input
 	return &s3.PutBucketEncryptionOutput{}, nil
 }
 
+func (m *mockS3Client) PutBucketLoggingWithContext(ctx context.Context, input *s3.PutBucketLoggingInput, opts ...request.Option) (*s3.PutBucketLoggingOutput, error) {
+	if err, ok := m.err["PutBucketLoggingWithContext"]; ok {
+		return nil, err
+	}
+	return &s3.PutBucketLoggingOutput{}, nil
+}
+
 func (m *mockS3Client) PutBucketTaggingWithContext(ctx context.Context, input *s3.PutBucketTaggingInput, opts ...request.Option) (*s3.PutBucketTaggingOutput, error) {
 	if err, ok := m.err["PutBucketTaggingWithContext"]; ok {
 		return nil, err
@@ -272,6 +279,19 @@ func TestProvision(t *testing.T) {
 		t.Errorf("expected repository '%s', got: %s", expected, got)
 	}
 
+	// test success, without tags, with prefix, with LoggingBucket
+	s = S3Repository{NamePrefix: "dataset", LoggingBucket: "ds-test-access-logs", S3: newMockS3Client(t), IAM: newMockIAMClient(t)}
+	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
+	expected = "dataset-68004EEC-6044-45C9-91E5-AF836DCD9234"
+
+	got, err = s.Provision(context.TODO(), "68004EEC-6044-45C9-91E5-AF836DCD9234", []*dataset.Tag{})
+	if err != nil {
+		t.Errorf("expected nil error, got: %s", err)
+	}
+	if got != expected {
+		t.Errorf("expected repository '%s', got: %s", expected, got)
+	}
+
 	// test empty id
 	s = S3Repository{S3: newMockS3Client(t)}
 	id = ""
@@ -393,6 +413,30 @@ func TestProvision(t *testing.T) {
 	expectedMessage = fmt.Sprintf("failed to enable encryption for s3 bucket dataset-%s", id)
 	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
 	s.S3.(*mockS3Client).err["PutBucketEncryptionWithContext"] = awserr.New("InternalError", "Internal Error", nil)
+
+	_, err = s.Provision(context.TODO(), id, testTags)
+	if err == nil {
+		t.Error("expected error, got: nil")
+	} else {
+		if aerr, ok := err.(apierror.Error); ok {
+			if aerr.Code != expectedCode {
+				t.Errorf("expected error code %s, got: %s", expectedCode, aerr.Code)
+			}
+			if aerr.Message != expectedMessage {
+				t.Errorf("expected error message '%s', got: '%s'", expectedMessage, aerr.Message)
+			}
+		} else {
+			t.Errorf("expected apierror.Error, got: %s", reflect.TypeOf(err).String())
+		}
+	}
+
+	// test bucket enable access logging failure
+	s = S3Repository{NamePrefix: "dataset", LoggingBucket: "ds-test-access-logs", S3: newMockS3Client(t)}
+	id = "68004EEC-6044-45C9-91E5-AF836DCD9234"
+	expectedCode = apierror.ErrServiceUnavailable
+	expectedMessage = fmt.Sprintf("failed to enable access logging for s3 bucket dataset-%s", id)
+	s.S3.(*mockS3Client).err["HeadBucketWithContext"] = awserr.New("NotFound", "bucket not found", nil)
+	s.S3.(*mockS3Client).err["PutBucketLoggingWithContext"] = awserr.New("InternalError", "Internal Error", nil)
 
 	_, err = s.Provision(context.TODO(), id, testTags)
 	if err == nil {
