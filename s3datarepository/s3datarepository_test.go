@@ -115,7 +115,6 @@ func TestNewDefaultRepository(t *testing.T) {
 		"loggingBucket": "dsapi-test-access-logs",
 	}
 
-	expectedLoggingBucketPrefix := "datasets"
 	expectedIAMPathPrefix := "/spinup/dataset/"
 
 	s, err := NewDefaultRepository(testConfig)
@@ -141,10 +140,6 @@ func TestNewDefaultRepository(t *testing.T) {
 
 	if s.LoggingBucket == "" {
 		t.Error("expected LoggingBucket to be set, got empty")
-	}
-
-	if s.LoggingBucketPrefix != expectedLoggingBucketPrefix {
-		t.Errorf("expected LoggingBucketPrefix to be '%s', got '%s'", expectedLoggingBucketPrefix, s.LoggingBucketPrefix)
 	}
 
 	if s.IAMPathPrefix != expectedIAMPathPrefix {

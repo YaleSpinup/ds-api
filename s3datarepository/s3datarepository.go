@@ -85,7 +85,6 @@ func NewDefaultRepository(config map[string]interface{}) (*S3Repository, error) 
 
 	if loggingBucket != "" {
 		opts = append(opts, WithLoggingBucket(loggingBucket))
-		opts = append(opts, WithLoggingBucketPrefix("datasets"))
 	}
 
 	// set default IAMPathPrefix
@@ -378,7 +377,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 			BucketLoggingStatus: &s3.BucketLoggingStatus{
 				LoggingEnabled: &s3.LoggingEnabled{
 					TargetBucket: aws.String(s.LoggingBucket),
-					TargetPrefix: aws.String(s.LoggingBucketPrefix),
+					TargetPrefix: aws.String(s.LoggingBucketPrefix + id + "/"),
 				},
 			},
 		})

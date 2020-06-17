@@ -96,6 +96,7 @@ func NewServer(config common.Config) error {
 				if err != nil {
 					return err
 				}
+				dataRepo.LoggingBucketPrefix = "dataset/" + Org + "/"
 				dataRepo.NamePrefix = "dataset-" + Org
 				dataRepos["s3"] = dataRepo
 
