@@ -307,10 +307,9 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 
 	// create s3 bucket
 	log.Debugf("creating s3 bucket: %s", name)
-	_, err = s.S3.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
+	if _, err = s.S3.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
 		Bucket: aws.String(name),
-	})
-	if err != nil {
+	}); err != nil {
 		return "", ErrCode("failed to create s3 bucket "+name, err)
 	}
 
@@ -326,10 +325,9 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 	})
 
 	// wait for bucket to exist
-	err = s.S3.WaitUntilBucketExistsWithContext(ctx, &s3.HeadBucketInput{Bucket: aws.String(name)},
+	if err = s.S3.WaitUntilBucketExistsWithContext(ctx, &s3.HeadBucketInput{Bucket: aws.String(name)},
 		request.WithWaiterDelay(request.ConstantWaiterDelay(2*time.Second)),
-	)
-	if err != nil {
+	); err != nil {
 		msg := fmt.Sprintf("failed to create bucket %s, timeout waiting for create: %s", name, err.Error())
 		return "", apierror.New(apierror.ErrInternalError, msg, err)
 	}
@@ -338,7 +336,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 
 	// block public access
 	log.Debugf("blocking all public access for bucket: %s", name)
-	_, err = s.S3.PutPublicAccessBlockWithContext(ctx, &s3.PutPublicAccessBlockInput{
+	if _, err = s.S3.PutPublicAccessBlockWithContext(ctx, &s3.PutPublicAccessBlockInput{
 		Bucket: aws.String(name),
 		PublicAccessBlockConfiguration: &s3.PublicAccessBlockConfiguration{
 			BlockPublicAcls:       aws.Bool(true),
@@ -346,14 +344,13 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 			IgnorePublicAcls:      aws.Bool(true),
 			RestrictPublicBuckets: aws.Bool(true),
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return "", ErrCode("failed to block public access for s3 bucket "+name, err)
 	}
 
 	// enable AWS managed serverside encryption for the bucket
 	log.Debugf("enabling s3 encryption for bucket: %s", name)
-	_, err = s.S3.PutBucketEncryptionWithContext(ctx, &s3.PutBucketEncryptionInput{
+	if _, err = s.S3.PutBucketEncryptionWithContext(ctx, &s3.PutBucketEncryptionInput{
 		Bucket: aws.String(name),
 		ServerSideEncryptionConfiguration: &s3.ServerSideEncryptionConfiguration{
 			Rules: []*s3.ServerSideEncryptionRule{
@@ -364,15 +361,14 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 				},
 			},
 		},
-	})
-	if err != nil {
+	}); err != nil {
 		return "", ErrCode("failed to enable encryption for s3 bucket "+name, err)
 	}
 
 	// enable access logging for the bucket to a central repo if the logging bucket is set
 	if s.LoggingBucket != "" {
 		log.Debugf("enabling server access logging for bucket: %s", name)
-		_, err = s.S3.PutBucketLoggingWithContext(ctx, &s3.PutBucketLoggingInput{
+		if _, err = s.S3.PutBucketLoggingWithContext(ctx, &s3.PutBucketLoggingInput{
 			Bucket: aws.String(name),
 			BucketLoggingStatus: &s3.BucketLoggingStatus{
 				LoggingEnabled: &s3.LoggingEnabled{
@@ -380,8 +376,7 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 					TargetPrefix: aws.String(s.LoggingBucketPrefix + id + "/"),
 				},
 			},
-		})
-		if err != nil {
+		}); err != nil {
 			return "", ErrCode("failed to enable access logging for s3 bucket "+name, err)
 		}
 	} else {
@@ -391,11 +386,10 @@ func (s *S3Repository) Provision(ctx context.Context, id string, datasetTags []*
 	// add tags
 	if len(tags) > 0 {
 		log.Debugf("adding tags for bucket '%s': %+v", name, tags)
-		_, err = s.S3.PutBucketTaggingWithContext(ctx, &s3.PutBucketTaggingInput{
+		if _, err = s.S3.PutBucketTaggingWithContext(ctx, &s3.PutBucketTaggingInput{
 			Bucket:  aws.String(name),
 			Tagging: &s3.Tagging{TagSet: tags},
-		})
-		if err != nil {
+		}); err != nil {
 			return "", ErrCode("failed to tag s3 bucket "+name, err)
 		}
 	}
