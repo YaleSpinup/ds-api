@@ -16,7 +16,8 @@
       "config": {
         "region": "us-east-1",
         "akid": "{{ .spinup_akid }}",
-        "secret": "{{ .spinup_secret }}"
+        "secret": "{{ .spinup_secret }}",
+        "loggingBucket": "{{ .spinup_logging_bucket }}"
       }
     },
     "spinupsec": {
@@ -24,7 +25,8 @@
       "config": {
         "region": "us-east-1",
         "akid": "{{ .spinupsec_akid }}",
-        "secret": "{{ .spinupsec_secret }}"
+        "secret": "{{ .spinupsec_secret }}",
+        "loggingBucket": "{{ .spinupsec_logging_bucket }}"
       }
     }
   },
