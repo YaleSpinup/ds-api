@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/YaleSpinup/ds-api/common"
+	"github.com/YaleSpinup/ds-api/cwauditlogrepository"
 	"github.com/YaleSpinup/ds-api/dataset"
 	"github.com/YaleSpinup/ds-api/s3datarepository"
 	"github.com/YaleSpinup/ds-api/s3metadatarepository"
@@ -113,7 +114,15 @@ func NewServer(config common.Config) error {
 			}
 		}
 
+		// Initialize audit log repository session
+		auditLogRepo, err := cwauditlogrepository.NewDefaultRepository(a.Config)
+		if err != nil {
+			return err
+		}
+		auditLogRepo.Prefix = "dataset-" + Org
+
 		s.datasetServices[name] = dataset.NewService(
+			dataset.WithAuditLogRepository(auditLogRepo),
 			dataset.WithMetadataRepository(metadataRepo),
 			dataset.WithDataRepository(dataRepos),
 			dataset.WithAttachmentRepository(attachmentRepos),

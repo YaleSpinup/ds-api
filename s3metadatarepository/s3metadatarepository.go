@@ -351,7 +351,7 @@ func (s *S3Repository) Delete(ctx context.Context, account, id string) error {
 		return apierror.New(apierror.ErrBadRequest, "invalid input", errors.New("empty id"))
 	}
 
-	log.Debugf("deleting s3metadatarepository object in account '%s' with id: %s", account, id)
+	log.Infof("deleting s3metadatarepository object in account '%s' with id: %s", account, id)
 
 	key := s.Prefix + "/" + account
 	if !strings.HasSuffix(account, "/") && !strings.HasPrefix(id, "/") {

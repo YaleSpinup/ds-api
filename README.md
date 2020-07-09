@@ -280,6 +280,11 @@ Request:
 
 DELETE /v1/ds/{account}/datasets/{id}
 
+Headers:
+```
+X-Forwarded-User: awong
+```
+
 | Response Code                 | Definition                           |
 | ----------------------------- | -------------------------------------|
 | **204 OK**                    | okay                                 |
@@ -582,6 +587,29 @@ You can then define a list of `accounts` for the actual dataset repositories - t
                 "ec2:DisassociateIamInstanceProfile"
             ],
             "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": "logs:CreateLogGroup",
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "logs:ListTagsLogGroup",
+                "logs:CreateLogStream",
+                "logs:TagLogGroup",
+                "logs:DescribeLogGroups",
+                "logs:DeleteLogGroup",
+                "logs:DescribeLogStreams",
+                "logs:GetLogEvents",
+                "logs:PutRetentionPolicy",
+                "logs:PutLogEvents"
+            ],
+            "Resource": [
+                "arn:aws:logs:*:*:log-group:dataset-*:log-stream:*",
+                "arn:aws:logs:*:*:log-group:dataset-*"
+            ]
         }
     ]
 }

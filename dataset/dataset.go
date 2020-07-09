@@ -8,9 +8,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// Service is a collection of one or more Data/Attachment Repositories and a Matadata Repository for storing datasets
+// Service is a collection of the following:
+// - a Metadata Repository for storing dataset metadata
+// - an Audit Log Repository for storing audit logs
+// - one or more Data Repositories for storing datasets
+// - one or more Attachment Repositories for storing attachments
 type Service struct {
 	MetadataRepository   MetadataRepository
+	AuditLogRepository   AuditLogRepository
 	DataRepository       map[string]DataRepository
 	AttachmentRepository map[string]AttachmentRepository
 }
@@ -22,6 +27,12 @@ type MetadataRepository interface {
 	Promote(ctx context.Context, account, id, user string) (*Metadata, error)
 	Update(ctx context.Context, account, id string, metadata *Metadata) (*Metadata, error)
 	Delete(ctx context.Context, account, id string) error
+}
+
+// AuditLogRepository is an interface for audit log repository
+type AuditLogRepository interface {
+	CreateLog(ctx context.Context, group, stream string, retention int64, tags []*Tag) error
+	Log(ctx context.Context, account, id string) chan string
 }
 
 // DataRepository is an interface for data repository
@@ -70,6 +81,13 @@ func NewService(opts ...ServiceOption) *Service {
 	}
 
 	return &s
+}
+
+// WithAuditLogRepository sets the AuditLogRepository for the service
+func WithAuditLogRepository(repo AuditLogRepository) ServiceOption {
+	return func(s *Service) {
+		s.AuditLogRepository = repo
+	}
 }
 
 // WithMetadataRepository sets the MetadataRepository for the service
