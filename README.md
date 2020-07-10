@@ -591,7 +591,7 @@ You can then define a list of `accounts` for the actual dataset repositories - t
         {
             "Effect": "Allow",
             "Action": "logs:CreateLogGroup",
-            "Resource": "*"
+            "Resource": "arn:aws:logs:*:*:log-group:/spinup/ORG/*"
         },
         {
             "Effect": "Allow",
@@ -607,8 +607,8 @@ You can then define a list of `accounts` for the actual dataset repositories - t
                 "logs:PutLogEvents"
             ],
             "Resource": [
-                "arn:aws:logs:*:*:log-group:dataset-*:log-stream:*",
-                "arn:aws:logs:*:*:log-group:dataset-*"
+                "arn:aws:logs:*:*:log-group:/spinup/ORG/*:log-stream:*",
+                "arn:aws:logs:*:*:log-group:/spinup/ORG/*"
             ]
         }
     ]

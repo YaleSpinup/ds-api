@@ -158,9 +158,9 @@ func (m *mockCWLclient) DeleteLogGroup(ctx context.Context, group string) error 
 
 func newMockCWAuditLogRepository(prefix string, timeout time.Duration, cwl *mockCWLclient) *CWAuditLogRepository {
 	return &CWAuditLogRepository{
-		CW:      cwl,
-		Prefix:  prefix,
-		timeout: timeout,
+		CW:          cwl,
+		GroupPrefix: prefix,
+		timeout:     timeout,
 	}
 }
 
@@ -180,8 +180,8 @@ func TestNewDefaultRepository(t *testing.T) {
 		t.Errorf("expected type to be '*cwauditlogrepository.CWAuditLogRepository', got %s", to)
 	}
 
-	if s.Prefix != "dataset" {
-		t.Error("expected Prefix to be 'dataset', got ''")
+	if s.GroupPrefix != "" {
+		t.Errorf("expected GroupPrefix to be '', got %s", s.GroupPrefix)
 	}
 
 	if s.timeout != 5*time.Minute {
@@ -200,30 +200,9 @@ func TestNew(t *testing.T) {
 	}
 }
 
-// func TestNewLogger(t *testing.T) {
-// 	input := common.LogProvider{
-// 		Region: "sanitarium",
-// 		Akid:   "welcome-home",
-// 		Secret: "masterofpuppets1986",
-// 	}
-
-// 	l := newLogger("foo", input)
-// 	if is := reflect.TypeOf(l).String(); is != "*api.logger" {
-// 		t.Errorf("expected newLogger to return '*api.logger', got %s", is)
-// 	}
-
-// 	if l.prefix != "foo" {
-// 		t.Errorf("expected prefix to be 'foo' got %s", l.prefix)
-// 	}
-
-// 	if l.timeout != 5*time.Minute {
-// 		t.Errorf("expected timeout to be 5 minutes, got %s", l.timeout.String())
-// 	}
-// }
-
 func TestCreateLog(t *testing.T) {
 	logGroups = make(map[string]*logGroup)
-	l := newMockCWAuditLogRepository("test", 5*time.Second, &mockCWLclient{t: t})
+	l := newMockCWAuditLogRepository("/test/", 5*time.Second, &mockCWLclient{t: t})
 
 	tags := []*dataset.Tag{
 		{Key: aws.String("soClose"), Value: aws.String("noMatterHowFar")},
@@ -238,7 +217,7 @@ func TestCreateLog(t *testing.T) {
 	}
 
 	expected := &logGroup{
-		name:      "test-group",
+		name:      "/test/group",
 		retention: int64(90),
 		streams: map[string][]*cloudwatchlogs.Event{
 			"test-stream": {},
@@ -250,8 +229,8 @@ func TestCreateLog(t *testing.T) {
 		t.Errorf("expected nil error, got %s", err)
 	}
 
-	if lg, ok := logGroups["test-group"]; !ok {
-		t.Error("expected log group 'test-group' to exist")
+	if lg, ok := logGroups["/test/group"]; !ok {
+		t.Error("expected log group '/test/group' to exist")
 	} else {
 		if !reflect.DeepEqual(lg, expected) {
 			t.Errorf("expected %+v, got %+v", expected, lg)

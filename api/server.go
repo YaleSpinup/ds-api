@@ -114,12 +114,13 @@ func NewServer(config common.Config) error {
 			}
 		}
 
-		// Initialize audit log repository session
+		// Initialize audit log repository session and set log prefixes
 		auditLogRepo, err := cwauditlogrepository.NewDefaultRepository(a.Config)
 		if err != nil {
 			return err
 		}
-		auditLogRepo.Prefix = "dataset-" + Org
+		auditLogRepo.GroupPrefix = "/spinup/" + Org + "/"
+		auditLogRepo.StreamPrefix = "dataset-"
 
 		s.datasetServices[name] = dataset.NewService(
 			dataset.WithAuditLogRepository(auditLogRepo),

@@ -20,6 +20,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 
 	service, ok := s.datasetServices[account]
 	if !ok {
@@ -170,14 +171,15 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create new audit log for this data set, with a retention period of 365 days
-	lErr := service.AuditLogRepository.CreateLog(r.Context(), "spaceid", id, int64(365), input.Tags)
+	lErr := service.AuditLogRepository.CreateLog(r.Context(), group, id, int64(365), input.Tags)
 	if lErr != nil {
 		log.Errorf("failed creating job audit log for %s: %s", id, lErr)
 	} else {
 		// initialize audit log stream
-		auditLog := service.AuditLogRepository.Log(r.Context(), "spaceid", id)
-		msg := fmt.Sprintf("Created dataset %s (Derivative: %t, Name: %s, Description: %s, CreatedBy: %s)", id, metadataOutput.Derivative, metadataOutput.Name, metadataOutput.Description, metadataOutput.CreatedBy)
+		auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+		msg := fmt.Sprintf("Created dataset %s (CreatedBy: %s)", id, metadataOutput.CreatedBy)
 		auditLog <- msg
+		auditLog <- string(j)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -189,8 +191,9 @@ func (s *server) DatasetListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 
-	log.Debugf("listing data sets for account %s", account)
+	log.Debugf("listing data sets for account %s, group %s", account, group)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotImplemented)
@@ -270,6 +273,7 @@ func (s *server) DatasetPromoteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	user := r.Header.Get("X-Forwarded-User")
@@ -331,6 +335,14 @@ func (s *server) DatasetPromoteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	if metadata.Derivative {
+		auditLog <- fmt.Sprintf("Promoted derivative dataset %s to original (ModifiedBy: %s)", id, user)
+	} else {
+		auditLog <- fmt.Sprintf("Finalized original dataset %s (ModifiedBy: %s)", id, user)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
@@ -342,6 +354,7 @@ func (s *server) DatasetUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	user := r.Header.Get("X-Forwarded-User")
@@ -413,6 +426,12 @@ func (s *server) DatasetUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	msg := fmt.Sprintf("Updated metadata for dataset %s (ModifiedBy: %s)", id, user)
+	auditLog <- msg
+	auditLog <- string(j)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
@@ -422,6 +441,7 @@ func (s *server) DatasetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	user := r.Header.Get("X-Forwarded-User")
@@ -468,7 +488,7 @@ func (s *server) DatasetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// write to audit log
-	auditLog := service.AuditLogRepository.Log(r.Context(), "spaceid", id)
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
 	msg := fmt.Sprintf("Deleted dataset %s (DeletedBy: %s)", id, user)
 	auditLog <- msg
 

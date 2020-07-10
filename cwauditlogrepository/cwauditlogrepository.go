@@ -26,9 +26,10 @@ type CWRepositoryOption func(*CWAuditLogRepository)
 
 // CWAuditLogRepository is an implementation of an audit respository in CloudWatch
 type CWAuditLogRepository struct {
-	CW      cwlogsIface
-	Prefix  string
-	timeout time.Duration
+	CW           cwlogsIface
+	GroupPrefix  string
+	StreamPrefix string
+	timeout      time.Duration
 }
 
 // NewDefaultRepository creates a new repository from the default config data
@@ -50,10 +51,7 @@ func NewDefaultRepository(config map[string]interface{}) (*CWAuditLogRepository,
 		WithClient(akid, secret, region),
 	}
 
-	// set default prefix
-	opts = append(opts, WithPrefix("dataset"))
-
-	// set default timeout
+	// set default log batch timeout
 	opts = append(opts, WithTimeout(5*time.Minute))
 
 	return New(opts...)
@@ -85,11 +83,11 @@ func WithClient(akid, secret, region string) CWRepositoryOption {
 func WithPrefix(prefix string) CWRepositoryOption {
 	return func(l *CWAuditLogRepository) {
 		log.Debugf("setting log group prefix %s", prefix)
-		l.Prefix = prefix
+		l.GroupPrefix = prefix
 	}
 }
 
-// WithTimeout sets the timeout
+// WithTimeout sets the log batch timeout
 func WithTimeout(timeout time.Duration) CWRepositoryOption {
 	return func(l *CWAuditLogRepository) {
 		log.Debugf("setting audit log timeout %v", timeout)
@@ -101,9 +99,14 @@ func WithTimeout(timeout time.Duration) CWRepositoryOption {
 func (l *CWAuditLogRepository) Log(ctx context.Context, group, stream string) chan string {
 	messageStream := make(chan string)
 
-	// prepend the prefix to the given log group
-	if l.Prefix != "" {
-		group = l.Prefix + "-" + group
+	// prepend the group prefix to the given log group
+	if l.GroupPrefix != "" {
+		group = l.GroupPrefix + group
+	}
+
+	// prepend the stream prefix to the given log stream
+	if l.StreamPrefix != "" {
+		stream = l.StreamPrefix + stream
 	}
 
 	// TODO: this will fail if there are more than 10,000 entries batched.  Initially, I
@@ -164,8 +167,12 @@ func (l *CWAuditLogRepository) Log(ctx context.Context, group, stream string) ch
 // It also sets the log retention for the log group (in days) and adds tags
 func (l *CWAuditLogRepository) CreateLog(ctx context.Context, group, stream string, retention int64, tags []*dataset.Tag) error {
 	logGroup := group
-	if l.Prefix != "" {
-		logGroup = l.Prefix + "-" + logGroup
+	if l.GroupPrefix != "" {
+		logGroup = l.GroupPrefix + logGroup
+	}
+
+	if l.StreamPrefix != "" {
+		stream = l.StreamPrefix + stream
 	}
 
 	log.Infof("creating cloudwatch log %s/%s (%d day retention)", logGroup, stream, retention)
@@ -213,8 +220,8 @@ func (l *CWAuditLogRepository) CreateLog(ctx context.Context, group, stream stri
 
 func (l *CWAuditLogRepository) updateLog(ctx context.Context, group string, retention int64, tags []*dataset.Tag) error {
 	logGroup := group
-	if l.Prefix != "" {
-		logGroup = l.Prefix + "-" + logGroup
+	if l.GroupPrefix != "" {
+		logGroup = l.GroupPrefix + logGroup
 	}
 
 	// prepare tags
@@ -236,8 +243,8 @@ func (l *CWAuditLogRepository) updateLog(ctx context.Context, group string, rete
 
 func (l *CWAuditLogRepository) describeLog(ctx context.Context, group string) (*cloudwatchlogs.LogGroup, []*dataset.Tag, error) {
 	logGroup := group
-	if l.Prefix != "" {
-		logGroup = l.Prefix + "-" + logGroup
+	if l.GroupPrefix != "" {
+		logGroup = l.GroupPrefix + logGroup
 	}
 
 	tags, err := l.CW.GetLogGroupTags(ctx, logGroup)
