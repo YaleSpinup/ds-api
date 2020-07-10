@@ -73,6 +73,7 @@ func (s *server) UserCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	service, ok := s.datasetServices[account]
@@ -110,6 +111,11 @@ func (s *server) UserCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	msg := fmt.Sprintf("Created user with access to dataset %s", id)
+	auditLog <- msg
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
@@ -120,6 +126,7 @@ func (s *server) UserDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	service, ok := s.datasetServices[account]
@@ -151,16 +158,22 @@ func (s *server) UserDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	msg := fmt.Sprintf("Deleted user with access to dataset %s", id)
+	auditLog <- msg
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
 
-// UserUpdateHandler deletes a user of a dataset
+// UserUpdateHandler updates key for a user of a dataset
 func (s *server) UserUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	service, ok := s.datasetServices[account]
@@ -197,6 +210,11 @@ func (s *server) UserUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	msg := fmt.Sprintf("Updated key for user with access to dataset %s", id)
+	auditLog <- msg
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
