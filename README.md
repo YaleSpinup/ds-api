@@ -11,31 +11,31 @@ GET /v1/ds/ping
 GET /v1/ds/version
 GET /v1/ds/metrics
 
-POST /v1/ds/{account}/datasets
-GET /v1/ds/{account}/datasets/{id}
-PATCH /v1/ds/{account}/datasets/{id}
-PUT /v1/ds/{account}/datasets/{id}
-DELETE /v1/ds/{account}/datasets/{id}
+POST /v1/ds/{account}/datasets/{group}
+GET /v1/ds/{account}/datasets/{group}/{id}
+PATCH /v1/ds/{account}/datasets/{group}/{id}
+PUT /v1/ds/{account}/datasets/{group}/{id}
+DELETE /v1/ds/{account}/datasets/{group}/{id}
 
-POST /v1/ds/{account}/datasets/{id}/attachments
-DELETE /v1/ds/{account}/datasets/{id}/attachments
-GET /v1/ds/{account}/datasets/{id}/attachments
+POST /v1/ds/{account}/datasets/{group}/{id}/attachments
+DELETE /v1/ds/{account}/datasets/{group}/{id}/attachments
+GET /v1/ds/{account}/datasets/{group}/{id}/attachments
 
-GET /v1/ds/{account}/datasets/{id}/instances
-POST /v1/ds/{account}/datasets/{id}/instances
-DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
+GET /v1/ds/{account}/datasets/{group}/{id}/instances
+POST /v1/ds/{account}/datasets/{group}/{id}/instances
+DELETE /v1/ds/{account}/datasets/{group}/{id}/instances/{instance_id}
 
-GET /v1/ds/{account}/datasets/{id}/users
-POST /v1/ds/{account}/datasets/{id}/users
-DELETE /v1/ds/{account}/datasets/{id}/users
-PUT /v1/ds/{account}/datasets/{id}/users
+GET /v1/ds/{account}/datasets/{group}/{id}/users
+POST /v1/ds/{account}/datasets/{group}/{id}/users
+DELETE /v1/ds/{account}/datasets/{group}/{id}/users
+PUT /v1/ds/{account}/datasets/{group}/{id}/users
 ```
 
 ## Usage
 
 ### Create a dataset
 
-POST /v1/ds/{account}/datasets
+POST /v1/ds/{account}/datasets/{group}
 
 ```json
 {
@@ -106,7 +106,7 @@ POST /v1/ds/{account}/datasets
 
 ### Get information about a dataset
 
-GET /v1/ds/{account}/datasets/{id}
+GET /v1/ds/{account}/datasets/{group}/{id}
 
 ```json
 {
@@ -174,7 +174,7 @@ GET /v1/ds/{account}/datasets/{id}
 
 ### Promote a dataset
 
-PATCH /v1/ds/{account}/datasets/{id}
+PATCH /v1/ds/{account}/datasets/{group}/{id}
 
 Headers:
 ```
@@ -222,7 +222,7 @@ X-Forwarded-User: awong
 
 ### Update dataset metadata
 
-PUT /v1/ds/{account}/datasets/{id}
+PUT /v1/ds/{account}/datasets/{group}/{id}
 
 Headers:
 ```
@@ -278,7 +278,7 @@ Request:
 
 ### Delete a dataset
 
-DELETE /v1/ds/{account}/datasets/{id}
+DELETE /v1/ds/{account}/datasets/{group}/{id}
 
 Headers:
 ```
@@ -295,7 +295,7 @@ X-Forwarded-User: awong
 
 ### Create attachment for a dataset
 
-POST /v1/ds/{account}/datasets/{id}/attachments
+POST /v1/ds/{account}/datasets/{group}/{id}/attachments
 
 The request needs to be a `multipart/form-data` with the following parameters:
   - `name` - the name of the attachment as it should be saved, e.g. `eula.txt`
@@ -318,7 +318,7 @@ The request needs to be a `multipart/form-data` with the following parameters:
 
 ### Delete attachment from a dataset
 
-DELETE /v1/ds/{account}/datasets/{id}/attachments
+DELETE /v1/ds/{account}/datasets/{group}/{id}/attachments
 
 ```json
 {
@@ -338,7 +338,7 @@ DELETE /v1/ds/{account}/datasets/{id}/attachments
 
 ### Get attachments for a dataset
 
-GET /v1/ds/{account}/datasets/{id}/attachments
+GET /v1/ds/{account}/datasets/{group}/{id}/attachments
 
 #### Response
 
@@ -369,7 +369,7 @@ GET /v1/ds/{account}/datasets/{id}/attachments
 
 ### List all instances that have access to a dataset
 
-GET /v1/ds/{account}/datasets/{id}/instances
+GET /v1/ds/{account}/datasets/{group}/{id}/instances
 
 ```json
 {
@@ -389,7 +389,7 @@ GET /v1/ds/{account}/datasets/{id}/instances
 
 ### Grant dataset access to an instance
 
-POST /v1/ds/{account}/datasets/{id}/instances
+POST /v1/ds/{account}/datasets/{group}/{id}/instances
 
 ```json
 {
@@ -417,7 +417,7 @@ POST /v1/ds/{account}/datasets/{id}/instances
 
 ### Revoke dataset access from an instance
 
-DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
+DELETE /v1/ds/{account}/datasets/{group}/{id}/instances/{instance_id}
 
 | Response Code                 | Definition                                   |
 | ----------------------------- | ---------------------------------------------|
@@ -428,7 +428,7 @@ DELETE /v1/ds/{account}/datasets/{id}/instances/{instance_id}
 
 ### Create a user for a dataset
 
-POST /v1/ds/{account}/datasets/{id}/users
+POST /v1/ds/{account}/datasets/{group}/{id}/users
 
 Request body is empty.
 
@@ -457,7 +457,7 @@ Request body is empty.
 
 ### Delete a user for a dataset
 
-DELETE /v1/ds/{account}/datasets/{id}/users
+DELETE /v1/ds/{account}/datasets/{group}/{id}/users
 
 #### Response
 
@@ -470,7 +470,7 @@ DELETE /v1/ds/{account}/datasets/{id}/users
 
 ### Get a user for a dataset
 
-GET /v1/ds/{account}/datasets/{id}/users
+GET /v1/ds/{account}/datasets/{group}/{id}/users
 
 #### Response
 
@@ -494,7 +494,7 @@ GET /v1/ds/{account}/datasets/{id}/users
 
 ### Update a user's key for a dataset
 
-PUT /v1/ds/{account}/datasets/{id}/users
+PUT /v1/ds/{account}/datasets/{group}/{id}/users
 
 Request body is empty.
 
@@ -614,6 +614,10 @@ You can then define a list of `accounts` for the actual dataset repositories - t
     ]
 }
 ```
+
+### Dataset groups
+
+When creating a data set you need to specify a group that it belongs to. The group could be any arbitrary string and it just provides a way to group similar datasets together (e.g. data sets that are part of the same application or department). Currently, the group is only used for logging purposes but eventually it will play a more significant role.
 
 ## Authors
 
