@@ -20,6 +20,7 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 
 	service, ok := s.datasetServices[account]
 	if !ok {
@@ -141,6 +142,16 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// append metadata cleanup to rollback tasks
+	rollBackTasks = append(rollBackTasks, func() error {
+		return func() error {
+			if err := service.MetadataRepository.Delete(r.Context(), account, id); err != nil {
+				return err
+			}
+			return nil
+		}()
+	})
+
 	output := struct {
 		ID         string            `json:"id"`
 		Repository string            `json:"repository"`
@@ -151,11 +162,24 @@ func (s *server) DatasetCreateHandler(w http.ResponseWriter, r *http.Request) {
 		metadataOutput,
 	}
 
-	j, err := json.Marshal(&output)
+	var j []byte
+	j, err = json.Marshal(&output)
 	if err != nil {
 		msg := fmt.Sprintf("cannot encode dataset output into json: %s", err)
 		handleError(w, apierror.New(apierror.ErrBadRequest, msg, err))
 		return
+	}
+
+	// create new audit log for this data set, with a retention period of 365 days
+	lErr := service.AuditLogRepository.CreateLog(r.Context(), group, id, int64(365), input.Tags)
+	if lErr != nil {
+		log.Errorf("failed creating job audit log for %s: %s", id, lErr)
+	} else {
+		// initialize audit log stream
+		auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+		msg := fmt.Sprintf("Created dataset %s (CreatedBy: %s)", id, metadataOutput.CreatedBy)
+		auditLog <- msg
+		auditLog <- string(j)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -167,8 +191,9 @@ func (s *server) DatasetListHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 
-	log.Debugf("listing data sets for account %s", account)
+	log.Debugf("listing data sets for account %s, group %s", account, group)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNotImplemented)
@@ -248,6 +273,7 @@ func (s *server) DatasetPromoteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	user := r.Header.Get("X-Forwarded-User")
@@ -309,6 +335,14 @@ func (s *server) DatasetPromoteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	if metadata.Derivative {
+		auditLog <- fmt.Sprintf("Promoted derivative dataset %s to original (ModifiedBy: %s)", id, user)
+	} else {
+		auditLog <- fmt.Sprintf("Finalized original dataset %s (ModifiedBy: %s)", id, user)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
@@ -320,6 +354,7 @@ func (s *server) DatasetUpdateHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	user := r.Header.Get("X-Forwarded-User")
@@ -352,7 +387,7 @@ func (s *server) DatasetUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("updating data set %s for account %s", id, account)
+	log.Infof("updating data set %s for account %s by user %s", id, account, user)
 
 	// get current metadata from repository
 	metadata, err := service.MetadataRepository.Get(r.Context(), account, id)
@@ -391,6 +426,12 @@ func (s *server) DatasetUpdateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	msg := fmt.Sprintf("Updated metadata for dataset %s (ModifiedBy: %s)", id, user)
+	auditLog <- msg
+	auditLog <- string(j)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
@@ -400,7 +441,14 @@ func (s *server) DatasetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
+
+	user := r.Header.Get("X-Forwarded-User")
+	if user == "" {
+		handleError(w, apierror.New(apierror.ErrBadRequest, "X-Forwarded-User header is required", nil))
+		return
+	}
 
 	service, ok := s.datasetServices[account]
 	if !ok {
@@ -409,7 +457,7 @@ func (s *server) DatasetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Debugf("deleting data set %s for account %s", id, account)
+	log.Infof("deleting data set %s for account %s by user %s", id, account, user)
 
 	// get metadata from repository
 	metadataOutput, err := service.MetadataRepository.Get(r.Context(), account, id)
@@ -438,6 +486,11 @@ func (s *server) DatasetDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
 		return
 	}
+
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	msg := fmt.Sprintf("Deleted dataset %s (DeletedBy: %s)", id, user)
+	auditLog <- msg
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)

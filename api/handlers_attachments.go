@@ -18,6 +18,7 @@ func (s *server) AttachmentCreateHandler(w http.ResponseWriter, r *http.Request)
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	service, ok := s.datasetServices[account]
@@ -94,6 +95,11 @@ func (s *server) AttachmentCreateHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	msg := fmt.Sprintf("Created new attachment for dataset %s (Name: %s, Size: %d bytes)", id, attachmentName, attachmentHeader.Size)
+	auditLog <- msg
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(j)
@@ -151,6 +157,7 @@ func (s *server) AttachmentDeleteHandler(w http.ResponseWriter, r *http.Request)
 	w = LogWriter{w}
 	vars := mux.Vars(r)
 	account := vars["account"]
+	group := vars["group"]
 	id := vars["id"]
 
 	service, ok := s.datasetServices[account]
@@ -196,6 +203,11 @@ func (s *server) AttachmentDeleteHandler(w http.ResponseWriter, r *http.Request)
 		handleError(w, apierror.New(apierror.ErrInternalError, msg, err))
 		return
 	}
+
+	// write to audit log
+	auditLog := service.AuditLogRepository.Log(r.Context(), group, id)
+	msg := fmt.Sprintf("Deleted attachment for dataset %s (Name: %s)", id, input.AttachmentName)
+	auditLog <- msg
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
