@@ -2,6 +2,7 @@ package cwauditlogrepository
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/YaleSpinup/ds-api/cloudwatchlogs"
@@ -17,6 +18,7 @@ type cwlogsIface interface {
 	CreateLogStream(ctx context.Context, group, stream string) error
 	TagLogGroup(ctx context.Context, group string, tags map[string]*string) error
 	GetLogGroupTags(ctx context.Context, group string) (map[string]*string, error)
+	GetLogEvents(ctx context.Context, group, stream string) ([]*cloudwatchlogs.Event, error)
 	DescribeLogGroup(ctx context.Context, group string) (*cloudwatchlogs.LogGroup, error)
 	DeleteLogGroup(ctx context.Context, group string) error
 }
@@ -216,6 +218,33 @@ func (l *CWAuditLogRepository) CreateLog(ctx context.Context, group, stream stri
 	}
 
 	return nil
+}
+
+// GetLog returns all audit log events from the specified group and stream in CloudWatch
+func (l *CWAuditLogRepository) GetLog(ctx context.Context, group, stream string) ([]string, error) {
+	logGroup := group
+	if l.GroupPrefix != "" {
+		logGroup = l.GroupPrefix + logGroup
+	}
+
+	if l.StreamPrefix != "" {
+		stream = l.StreamPrefix + stream
+	}
+
+	log.Infof("getting cloudwatch log %s/%s", logGroup, stream)
+
+	logEvents, err := l.CW.GetLogEvents(ctx, logGroup, stream)
+	if err != nil {
+		return nil, err
+	}
+
+	logs := make([]string, len(logEvents))
+	for i, ev := range logEvents {
+		t := time.Unix(0, ev.Timestamp*int64(time.Millisecond))
+		logs[i] = fmt.Sprintf("%s - %s", t.Format("01/02/2006, 15:04:05"), ev.Message)
+	}
+
+	return logs, nil
 }
 
 func (l *CWAuditLogRepository) updateLog(ctx context.Context, group string, retention int64, tags []*dataset.Tag) error {

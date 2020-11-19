@@ -47,17 +47,34 @@ func NewSession(region, akid, secret string) CloudWatchLogs {
 	return c
 }
 
-func (c *CloudWatchLogs) GetLogEvents(ctx context.Context, input *cloudwatchlogs.GetLogEventsInput) (*cloudwatchlogs.GetLogEventsOutput, error) {
-	if input == nil {
+// GetLogEvents gets all events from a log stream in a log group
+func (c *CloudWatchLogs) GetLogEvents(ctx context.Context, group, stream string) ([]*Event, error) {
+	if group == "" || stream == "" {
 		return nil, apierror.New(apierror.ErrBadRequest, "invalid input", nil)
 	}
 
-	output, err := c.Service.GetLogEventsWithContext(ctx, input)
+	output, err := c.Service.GetLogEventsWithContext(ctx, &cloudwatchlogs.GetLogEventsInput{
+		LogGroupName:  aws.String(group),
+		LogStreamName: aws.String(stream),
+	})
 	if err != nil {
-		return nil, ErrCode("failed to get log events", err)
+		msg := fmt.Sprintf("failed to get log events for %s/%s", group, stream)
+		log.Error(msg, err)
+		return nil, ErrCode(msg, err)
 	}
 
-	return output, nil
+	l := len(output.Events)
+	log.Debugf("got %d event(s)", l)
+
+	logEvents := make([]*Event, l)
+	for i, e := range output.Events {
+		logEvents[i] = &Event{
+			Message:   aws.StringValue(e.Message),
+			Timestamp: aws.Int64Value(e.Timestamp),
+		}
+	}
+
+	return logEvents, nil
 }
 
 // GetLogGroupTags returns the list of tags on a log group

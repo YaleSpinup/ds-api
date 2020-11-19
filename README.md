@@ -25,6 +25,8 @@ GET /v1/ds/{account}/datasets/{group}/{id}/instances
 POST /v1/ds/{account}/datasets/{group}/{id}/instances
 DELETE /v1/ds/{account}/datasets/{group}/{id}/instances/{instance_id}
 
+GET /v1/ds/{account}/datasets/{group}/{id}/logs
+
 GET /v1/ds/{account}/datasets/{group}/{id}/users
 POST /v1/ds/{account}/datasets/{group}/{id}/users
 DELETE /v1/ds/{account}/datasets/{group}/{id}/users
@@ -425,6 +427,29 @@ DELETE /v1/ds/{account}/datasets/{group}/{id}/instances/{instance_id}
 | **400 Bad Request**           | bad request, or instance doesn't have access |
 | **404 Not Found**             | account/dataset not found                    |
 | **500 Internal Server Error** | a server error occurred                      |
+
+
+### Get audit logs for a dataset
+
+GET /v1/ds/{account}/datasets/{group}/{id}/logs
+
+#### Response
+
+```json
+[
+   "11/19/2020, 17:07:28 - Created dataset 3819c173-e1a8-4fe5-b55c-b224bb86ddbd (CreatedBy: drzoidberg)",
+    "11/19/2020, 17:51:39 - Updated metadata for dataset 3819c173-e1a8-4fe5-b55c-b224bb86ddbd (ModifiedBy: awong)",
+    "11/19/2020, 17:56:33 - Finalized original dataset 3819c173-e1a8-4fe5-b55c-b224bb86ddbd (ModifiedBy: me)"
+]
+```
+
+| Response Code                 | Definition                           |
+| ----------------------------- | -------------------------------------|
+| **200 OK**                    | okay                                 |
+| **400 Bad Request**           | badly formed request                 |
+| **404 Not Found**             | account/dataset not found            |
+| **500 Internal Server Error** | a server error occurred              |
+
 
 ### Create a user for a dataset
 

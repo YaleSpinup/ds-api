@@ -140,6 +140,10 @@ func (m *mockCWLclient) CreateLogStream(ctx context.Context, group, stream strin
 	return nil
 }
 
+func (m *mockCWLclient) GetLogEvents(ctx context.Context, group, stream string) ([]*cloudwatchlogs.Event, error) {
+	return nil, nil
+}
+
 func (m *mockCWLclient) TagLogGroup(ctx context.Context, group string, tags map[string]*string) error {
 	return nil
 }

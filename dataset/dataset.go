@@ -32,6 +32,7 @@ type MetadataRepository interface {
 // AuditLogRepository is an interface for audit log repository
 type AuditLogRepository interface {
 	CreateLog(ctx context.Context, group, stream string, retention int64, tags []*Tag) error
+	GetLog(ctx context.Context, group, stream string) ([]string, error)
 	Log(ctx context.Context, account, id string) chan string
 }
 
