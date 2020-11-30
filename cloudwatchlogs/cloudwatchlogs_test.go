@@ -257,11 +257,8 @@ func TestDescribeLogGroup(t *testing.T) {
 
 func TestGetLogEvents(t *testing.T) {
 	client := CloudWatchLogs{Service: newmockCWLClient(t, nil)}
-	expected := &cloudwatchlogs.GetLogEventsOutput{}
-	out, err := client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{
-		LogGroupName:  aws.String("clu0"),
-		LogStreamName: aws.String("logStream0"),
-	})
+	expected := []*Event{}
+	out, err := client.GetLogEvents(context.TODO(), "test-group", "logstream0")
 	if err != nil {
 		t.Errorf("expected nil error, got %s", err)
 	}
@@ -270,12 +267,12 @@ func TestGetLogEvents(t *testing.T) {
 		t.Errorf("expected %+v, got %+v", expected, out)
 	}
 
-	if _, err = client.GetLogEvents(context.TODO(), nil); err == nil {
+	if _, err = client.GetLogEvents(context.TODO(), "", ""); err == nil {
 		t.Errorf("expected err for nil input")
 	}
 
 	client = CloudWatchLogs{Service: newmockCWLClient(t, awserr.New(cloudwatchlogs.ErrCodeInvalidOperationException, "The operation is not valid on the specified resource.", nil))}
-	_, err = client.GetLogEvents(context.TODO(), &cloudwatchlogs.GetLogEventsInput{})
+	_, err = client.GetLogEvents(context.TODO(), "test-group", "logstream0")
 	if err == nil {
 		t.Error("expected error, got nil")
 	} else {
