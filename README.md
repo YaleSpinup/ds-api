@@ -547,7 +547,7 @@ Request body is empty.
 
 ## Authentication
 
-Authentication is accomplished using a pre-shared key via the `X-Auth-Token` header.
+Authentication is accomplished using a pre-shared key (hashed string) in the `X-Auth-Token` header.
 
 ## API Configuration
 
