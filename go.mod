@@ -3,7 +3,7 @@ module github.com/YaleSpinup/ds-api
 go 1.18
 
 require (
-	github.com/aws/aws-sdk-go v1.44.98
+	github.com/aws/aws-sdk-go v1.45.27
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
@@ -23,6 +23,6 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
-	golang.org/x/sys v0.0.0-20220913175220-63ea55921009 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 )
